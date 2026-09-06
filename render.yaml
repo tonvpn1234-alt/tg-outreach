@@ -1,0 +1,13 @@
+# Blueprint для Render: New + → Blueprint → выбрать этот репозиторий
+services:
+  - type: worker
+    name: tg-outreach
+    runtime: docker
+    plan: standard          # 2 ГБ RAM; можно starter (512 МБ), но Chromium может падать по памяти
+    disk:
+      name: data            # здесь живут сессия/лиды/processed — переживают деплои
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: SESSION_STRING # строка из `python main.py --export-session`
+        sync: false         # Render попросит вставить значение при деплое

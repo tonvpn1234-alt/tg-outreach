@@ -41,6 +41,7 @@ from urllib.parse import quote, unquote
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from telethon import TelegramClient, errors
+from telethon.sessions import StringSession
 from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContactsRequest
 from telethon.tl.types import InputPhoneContact
 
@@ -61,6 +62,9 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 SESSION_NAME = "session_sender"                     # имя файла сессии Telegram
 SESSION_PATH = os.path.join(DATA_DIR, SESSION_NAME)  # без расширения .session
+# Строка Telethon-сессии для облака (Render/Railway): задайте переменную
+# окружения SESSION_STRING вместо файла сессии. Получить: python main.py --export-session
+SESSION_STRING = os.getenv("SESSION_STRING")
 LEADS_FILE = os.path.join(DATA_DIR, "leads.json")         # сюда складываются собранные компании
 PROCESSED_FILE = os.path.join(DATA_DIR, "processed.txt")  # номера, по которым уже отправляли
 ARCHIVED_FILE = os.path.join(DATA_DIR, "archived.txt")    # номера, ссылки на которые уже кинули в «Избранное»
@@ -184,6 +188,13 @@ tg_client = None  # создаётся в main() при необходимост
 
 class NotInTelegram(Exception):
     """Номер не найден в Telegram (не зарегистрирован / скрыт)."""
+
+
+def make_client():
+    """Клиент Telegram: из SESSION_STRING (облако) или из файла сессии."""
+    if SESSION_STRING:
+        return TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+    return TelegramClient(SESSION_PATH, API_ID, API_HASH)
 
 # ---------------------------------------------------------------------------
 # Извлечение данных из HTML 2ГИС (SSR-состояние)
@@ -716,6 +727,9 @@ def parse_args():
                              "по умолчанию — шаблоны под нишу")
     parser.add_argument("--selftest", action="store_true",
                         help="Тест Telegram: отправить тестовое сообщение самому себе")
+    parser.add_argument("--export-session", action="store_true",
+                        help="Печать строки сессии для переменной окружения SESSION_STRING "
+                             "(для Render/Railway)")
     parser.add_argument("--loop", action="store_true",
                         help="Непрерывный режим для сервера: цикл «сбор+рассылка» каждые --every-hours часов")
     parser.add_argument("--every-hours", type=float, default=6.0,
@@ -724,19 +738,35 @@ def parse_args():
 
 
 def ensure_session_or_exit():
-    """Без файла сессии в Docker интерактивный логин невозможен — выходим с подсказкой."""
+    """Без SESSION_STRING и файла сессии в облаке логиниться некому — выходим с подсказкой."""
+    if SESSION_STRING:
+        return
     if not os.path.exists(SESSION_PATH + ".session") and not sys.stdin.isatty():
-        print(f"[!] Не найден файл сессии: {SESSION_PATH}.session")
-        print("[!] Положите session_sender.session в папку data/ или залогиньтесь один раз:")
-        print("[!]   docker compose run --rm app python main.py --selftest")
+        print(f"[!] Нет ни SESSION_STRING, ни файла сессии: {SESSION_PATH}.session")
+        print("[!] На компьютере выполните:  python main.py --export-session")
+        print("[!] и вставьте выведенную строку в переменную окружения SESSION_STRING")
         sys.exit(1)
 
 
 async def async_main(args):
     global tg_client
 
+    if args.export_session:
+        # Выгружает локальную сессию в строку для переменной окружения SESSION_STRING
+        if not os.path.exists(SESSION_PATH + ".session"):
+            print(f"[!] Локальный файл сессии не найден: {SESSION_PATH}.session")
+            print("[!] Сначала запустите скрипт локально и залогиньтесь.")
+            sys.exit(1)
+        client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+        await client.start(phone=PHONE_NUMBER)
+        session_line = StringSession.save(client.session)
+        await client.disconnect()
+        print("\n[✅] Скопируйте строку ниже целиком в переменную окружения SESSION_STRING:\n")
+        print(session_line)
+        return
+
     if args.selftest:
-        tg_client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+        tg_client = make_client()
         await tg_client.start(phone=PHONE_NUMBER)
         me = await tg_client.get_me()
         print(f"[+] Аккаунт: {me.first_name} ({me.phone})")
@@ -767,7 +797,7 @@ async def async_main(args):
 
         # Архивируем ссылки на лидов в «Избранное»
         ensure_session_or_exit()
-        tg_client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+        tg_client = make_client()
         await tg_client.start(phone=PHONE_NUMBER)
         archived = 0
         try:
@@ -781,7 +811,7 @@ async def async_main(args):
 
     # Полный цикл или рассылка: запускаем Telegram
     ensure_session_or_exit()
-    tg_client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+    tg_client = make_client()
     await tg_client.start(phone=PHONE_NUMBER)
     me = await tg_client.get_me()
     print(f"[+] Telegram аккаунт: {me.first_name} ({me.phone})")
