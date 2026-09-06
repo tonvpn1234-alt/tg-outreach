@@ -1,0 +1,19 @@
+# секреты и состояние не должны попадать в образ
+data/
+*.session
+*.session-journal
+.env
+
+# локальные артефакты
+__pycache__/
+*.pyc
+leads.json
+processed.txt
+archived.txt
+leads.html
+input.txt
+message.txt
+probe_*.py
+probe_*.html
+probe_*.png
+api_*.json

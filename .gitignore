@@ -1,0 +1,15 @@
+# секреты и состояние — в репозиторий не заливать
+data/
+*.session
+*.session-journal
+.env
+
+# локальные данные
+__pycache__/
+*.pyc
+leads.json
+processed.txt
+archived.txt
+leads.html
+input.txt
+message.txt

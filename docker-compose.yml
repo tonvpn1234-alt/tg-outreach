@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: tg-outreach
+    restart: unless-stopped
+    environment:
+      - DATA_DIR=/app/data
+      - HEADLESS=1
+      # CITY/NICHES задаются в command; при желании можно переопределить:
+      # command: ["python", "main.py", "--loop", "--every-hours", "6",
+      #           "--city", "Санкт-Петербург",
+      #           "--niches", "барбершопы, стоматологии"]
+    volumes:
+      - ./data:/app/data
