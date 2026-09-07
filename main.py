@@ -51,9 +51,11 @@ from telethon.tl.types import InputPhoneContact
 
 load_dotenv()
 
-API_ID = int(os.getenv("API_ID", "34158551"))
-API_HASH = os.getenv("API_HASH", "6db201c043f5c148d131632731e25f45")
-PHONE_NUMBER = os.getenv("PHONE_NUMBER", "+79045188874")
+# Ключи берутся из .env или переменных окружения (в коде их больше нет,
+# чтобы репозиторий можно было открыть публично, а секреты хранить в GitHub Secrets)
+API_ID = int(os.getenv("API_ID") or 0)
+API_HASH = os.getenv("API_HASH", "")
+PHONE_NUMBER = os.getenv("PHONE_NUMBER", "")
 
 # Куда складывать файлы состояния (сессия, лиды, processed/archived).
 # В Docker/vps DATA_DIR=/app/data — примонтированный том, файлы не теряются.
@@ -96,9 +98,9 @@ REQUIRE_NO_WEBSITE = False # False — писать всем компаниям 
 HEADLESS = os.getenv("HEADLESS", "0") == "1"
 
 # Настройки безопасности рассылки
-MIN_DELAY = 60    # минимальная пауза между сообщениями (сек)
+MIN_DELAY = 60    # минимальная пауза между сообщениями (сек) — у каждого своя, случайная
 MAX_DELAY = 90    # максимальная пауза между сообщениями (сек)
-BATCH_SIZE = 5    # количество сообщений в пачке
+BATCH_SIZE = 50   # размер пачки: собрали 50 -> сводка в «Избранное» -> пишем каждому
 REST_TIME = 900   # перерыв между пачками (сек)
 
 # Шаблоны сообщений под нишу ({name} заменяется на название компании).
@@ -183,6 +185,37 @@ CITY_SLUGS = {
     "волгоград": "volgograd",
 }
 
+# 🇷🇺 Города для режима --rotate-cities: «распарсить весь РФ» = идём по списку
+# по кругу (прогресс хранится в city_cursor.txt, отправленные — в processed.txt)
+ROTATE_CITIES = [
+    "Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань",
+    "Нижний Новгород", "Челябинск", "Самара", "Омск", "Ростов-на-Дону",
+    "Уфа", "Красноярск", "Воронеж", "Пермь", "Волгоград", "Краснодар",
+    "Саратов", "Тюмень", "Тольятти", "Ижевск", "Барнаул", "Ульяновск",
+    "Иркутск", "Хабаровск", "Ярославль", "Владивосток", "Томск",
+    "Оренбург", "Кемерово", "Рязань", "Астрахань", "Пенза", "Липецк",
+    "Тула", "Киров", "Чебоксары", "Калининград", "Брянск", "Курск",
+    "Сочи", "Ставрополь", "Белгород", "Сургут", "Тверь", "Магнитогорск",
+    "Иваново", "Владимир", "Архангельск",
+]
+
+CITY_CURSOR_FILE = os.path.join(DATA_DIR, "city_cursor.txt")
+
+
+def next_rotate_city():
+    """Берёт следующий город из списка ротации и запоминает позицию."""
+    idx = 0
+    if os.path.exists(CITY_CURSOR_FILE):
+        try:
+            with open(CITY_CURSOR_FILE, "r", encoding="utf-8") as f:
+                idx = int(f.read().strip() or 0)
+        except (ValueError, OSError):
+            idx = 0
+    city = ROTATE_CITIES[idx % len(ROTATE_CITIES)]
+    with open(CITY_CURSOR_FILE, "w", encoding="utf-8") as f:
+        f.write(str((idx + 1) % len(ROTATE_CITIES)))
+    return city
+
 tg_client = None  # создаётся в main() при необходимости
 
 
@@ -192,6 +225,9 @@ class NotInTelegram(Exception):
 
 def make_client():
     """Клиент Telegram: из SESSION_STRING (облако) или из файла сессии."""
+    if not API_ID or not API_HASH:
+        sys.exit("[!] Не заданы API_ID/API_HASH — добавьте их в .env "
+                 "(локально) или в GitHub Secrets / переменные окружения (облако).")
     if SESSION_STRING:
         return TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     return TelegramClient(SESSION_PATH, API_ID, API_HASH)
@@ -342,14 +378,21 @@ async def _get_html(page, url, tries=3):
 
 
 async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
-                        require_no_website=False, headless=False, archive_cb=None):
+                        require_no_website=False, headless=False, archive_cb=None,
+                        target_leads=None):
     """Возвращает список лидов: {phone, tg_username, name, niche, address}.
 
     Новые лиды дописываются к уже сохранённым в LEADS_FILE (без дублей).
+    target_leads — остановить сбор, когда за этот запуск наберётся столько новых.
     """
     leads = load_leads()
     seen_phones = {l["phone"] for l in leads}
     seen_firm_ids = {l.get("firm_id") for l in leads if l.get("firm_id")}
+    initial_count = len(leads)
+    stop_collection = False
+
+    def _target_reached():
+        return bool(target_leads and (len(leads) - initial_count) >= target_leads)
 
     slug = CITY_SLUGS.get(city.lower().strip(), quote(city.lower()))
 
@@ -374,11 +417,15 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
         await _get_html(page, f"https://2gis.ru/{slug}")
 
         for niche in niches:
+            if stop_collection:
+                break
             print(f"\n[*] Ниша: «{niche}» ({city})")
 
             # 1) Собираем ID фирм из поисковых страниц
             firm_ids = []
             for page_num in range(1, max_pages + 1):
+                if stop_collection:
+                    break
                 search_url = f"https://2gis.ru/{slug}/search/{quote(niche)}"
                 if page_num > 1:
                     search_url += f"?page={page_num}"
@@ -402,6 +449,8 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
             # 2) Открываем страницы фирм и достаём контакты
             taken = 0
             for pid in firm_ids[:max_firms]:
+                if stop_collection:
+                    break
                 html = await _get_html(page, f"https://2gis.ru/firm/{pid}")
                 profiles = extract_profiles(html) if html else {}
                 prof = profiles.get(pid) or next(
@@ -458,10 +507,18 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
                         print(f"  [!] Не удалось сохранить ссылку в «Избранное»: {e}")
                 site_note = f"сайт: {sites[0]}" if has_site else "без сайта"
                 tg_note = f" | tg: @{tgs[0]}" if tgs else (f" | tg: {tg_phone}" if tg_phone else "")
-                print(f"  [+] {name} — {address} | {site_note}{tg_note} | тел: {new_candidates}")
+                progress = f" | набрано {len(leads) - initial_count}/{target_leads}" if target_leads else ""
+                print(f"  [+] {name} — {address} | {site_note}{tg_note} | тел: {new_candidates}{progress}")
+
+                if _target_reached():
+                    print(f"\n[🎯] Собрано {target_leads} новых лидов — прекращаю сбор, перехожу к рассылке.")
+                    stop_collection = True
+                    break
 
                 await asyncio.sleep(random.uniform(1.5, 3.0))
 
+            if stop_collection:
+                break
             print(f"[+] Итог по нише «{niche}»: {taken} компаний-лидов")
 
         await browser.close()
@@ -631,29 +688,64 @@ async def _deliver(client, item, message, processed):
     return None
 
 
+async def send_batch_digest(client, batch):
+    """Собирает пачку лидов «в кучу»: сообщение в «Избранное» со всеми ссылками."""
+    lines = []
+    for i, item in enumerate(batch, 1):
+        username = item.get("tg_username")
+        link = f"https://t.me/{username}" if username else f"https://t.me/{item.get('phone')}"
+        name = item.get("name") or "Компания"
+        site = "сайт" if item.get("has_site") else "без сайта"
+        lines.append(f"{i}) {link} — {name} ({site}, {item.get('niche') or '—'})")
+
+    chunk = f"📦 Новая пачка: {len(batch)} лидов\n\n"
+    for line in lines:
+        if len(chunk) + len(line) + 1 > 3800:  # лимит Telegram — 4096 символов
+            await client.send_message("me", chunk)
+            await asyncio.sleep(1)
+            chunk = ""
+        chunk += line + "\n"
+    if chunk.strip():
+        await client.send_message("me", chunk)
+
+
 async def send_all(leads, limit=None, custom_text=None):
     processed = load_processed()
     sent = 0
     not_in_tg = 0
-    errors_cnt = 0
     failures_in_row = 0
 
+    # Кого реально будем писать в этом запуске
+    pending = []
     for item in leads:
-        if limit is not None and sent >= limit:
-            print(f"\n[🛑] Достигнут лимит сообщений ({limit}). Останавливаюсь.")
-            break
-
         lead_phones = [val for kind, val in _lead_targets(item) if kind == "phone"]
         if lead_phones and all(ph.lower() in processed for ph in lead_phones):
-            print(f"[~] Пропуск {item.get('name') or item.get('phone')} (уже обрабатывали)")
             continue
+        pending.append(item)
+    if limit is not None:
+        pending = pending[:limit]
 
-        # 1) Ссылка на лида всегда улетает в «Избранное» — кликабельный архив
+    if not pending:
+        print("[~] Всех лидов уже обрабатывали — новых сообщений нет.")
+        return 0
+
+    # 1) Всю пачку «в кучу» — сводным списком в «Избранное»
+    try:
+        await send_batch_digest(tg_client, pending)
+        print(f"[📥] Сводка пачки ({len(pending)} лидов) отправлена в «Избранное»")
+    except Exception as e:
+        print(f"[!] Не удалось отправить сводку пачки в «Избранное»: {e}")
+
+    for item in pending:
+        lead_phones = [val for kind, val in _lead_targets(item) if kind == "phone"]
+
+        # 2) Ссылка на лида тоже летит в «Избранное» — кликабельный архив
         try:
             await archive_to_saved(tg_client, item)
         except Exception as e:
             print(f"[!] Не удалось сохранить ссылку в «Избранное»: {e}")
 
+        # 3) Пишем человеку: у каждого получателя свой случайный таймер
         message = generate_message(item, custom_text)
         label = f"{item.get('name')} ({item.get('niche')})"
         tg_note = f" | tg: @{item['tg_username']}" if item.get("tg_username") else ""
@@ -685,15 +777,16 @@ async def send_all(leads, limit=None, custom_text=None):
             if limit is not None and sent >= limit:
                 break
             if sent % BATCH_SIZE == 0:
-                print(f"\n[🛑] Отправлено {sent} сообщений. Перерыв {REST_TIME // 60} мин для защиты аккаунта...")
+                print(f"\n[🛑] Пачка из {BATCH_SIZE} сообщений отправлена. "
+                      f"Перерыв {REST_TIME // 60} мин для защиты аккаунта...")
                 await asyncio.sleep(REST_TIME)
             else:
-                delay = random.randint(MIN_DELAY, MAX_DELAY)
-                print(f"[*] Безопасная пауза: {delay} сек...")
+                delay = random.randint(MIN_DELAY, MAX_DELAY)  # свой таймер у каждого
+                print(f"[*] Пауза перед следующим получателем: {delay} сек...")
                 await asyncio.sleep(delay)
         else:
             print("[-] Автоматически отправить не удалось (номер не в Telegram). "
-                  "Ссылка на чат сохранена в «Избранное» — можно написать вручную.")
+                  "Ссылка сохранена в «Избранное» — можно написать вручную.")
             not_in_tg += 1
             failures_in_row += 1
             await asyncio.sleep(15)
@@ -718,6 +811,10 @@ def parse_args():
     parser.add_argument("--max-pages", type=int, default=MAX_PAGES_PER_NICHE)
     parser.add_argument("--max-firms", type=int, default=MAX_FIRMS_PER_NICHE)
     parser.add_argument("--limit", type=int, default=None, help="Максимум сообщений за запуск")
+    parser.add_argument("--target-leads", type=int, default=50,
+                        help="Остановить сбор, когда за запуск набрано столько новых лидов (50)")
+    parser.add_argument("--rotate-cities", action="store_true",
+                        help="Брать следующий город из списка ROTATE_CITIES (весь РФ по кругу)")
     parser.add_argument("--collect-only", action="store_true", help="Только сбор лидов, без рассылки")
     parser.add_argument("--send-only", action="store_true", help="Только рассылка по готовому leads.json")
     parser.add_argument("--headless", action="store_true", default=HEADLESS,
@@ -751,6 +848,14 @@ def ensure_session_or_exit():
 async def async_main(args):
     global tg_client
 
+    # Город для этого запуска: ротация по всей РФ или фиксированный из конфига
+    if args.rotate_cities:
+        city = next_rotate_city()
+        print(f"[🌍] Ротация городов: следующий — «{city}» "
+              f"(позиция в {CITY_CURSOR_FILE})")
+    else:
+        city = args.city
+
     if args.export_session:
         # Выгружает локальную сессию в строку для переменной окружения SESSION_STRING
         if not os.path.exists(SESSION_PATH + ".session"):
@@ -767,7 +872,7 @@ async def async_main(args):
 
     if args.selftest:
         tg_client = make_client()
-        await tg_client.start(phone=PHONE_NUMBER)
+        await tg_client.start(phone=PHONE_NUMBER or None)
         me = await tg_client.get_me()
         print(f"[+] Аккаунт: {me.first_name} ({me.phone})")
 
@@ -791,14 +896,15 @@ async def async_main(args):
 
     if args.collect_only:
         niches = [n.strip() for n in args.niches.split(",")] if args.niches else list(SEARCH_QUERIES)
-        leads = await collect_leads(args.city, niches, args.max_pages, args.max_firms,
-                                    MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless)
+        leads = await collect_leads(city, niches, args.max_pages, args.max_firms,
+                                    MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
+                                    target_leads=args.target_leads)
         print(f"\n[✅] Сбор завершён. Всего лидов: {len(leads)} (сохранены в {LEADS_FILE})")
 
         # Архивируем ссылки на лидов в «Избранное»
         ensure_session_or_exit()
         tg_client = make_client()
-        await tg_client.start(phone=PHONE_NUMBER)
+        await tg_client.start(phone=PHONE_NUMBER or None)
         archived = 0
         try:
             for lead in leads:
@@ -812,7 +918,7 @@ async def async_main(args):
     # Полный цикл или рассылка: запускаем Telegram
     ensure_session_or_exit()
     tg_client = make_client()
-    await tg_client.start(phone=PHONE_NUMBER)
+    await tg_client.start(phone=PHONE_NUMBER or None)
     me = await tg_client.get_me()
     print(f"[+] Telegram аккаунт: {me.first_name} ({me.phone})")
 
@@ -820,9 +926,10 @@ async def async_main(args):
         leads = load_leads()
         if not args.send_only:
             niches = [n.strip() for n in args.niches.split(",")] if args.niches else list(SEARCH_QUERIES)
-            await collect_leads(args.city, niches, args.max_pages, args.max_firms,
+            await collect_leads(city, niches, args.max_pages, args.max_firms,
                                 MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
-                                archive_cb=lambda lead: archive_to_saved(tg_client, lead))
+                                archive_cb=lambda lead: archive_to_saved(tg_client, lead),
+                                target_leads=args.target_leads)
             leads = load_leads()
 
         if not leads:

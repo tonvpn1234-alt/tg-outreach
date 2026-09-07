@@ -1,15 +1,14 @@
-# секреты и состояние — в репозиторий не заливать
+# секреты — в репозиторий не заливать
 data/
 *.session
 *.session-journal
 .env
 
-# локальные данные
+# состояние рассылки ведётся в корне и коммитится воркфлоу GitHub Actions
+# (leads.json, processed.txt, archived.txt, city_cursor.txt)
+
 __pycache__/
 *.pyc
-leads.json
-processed.txt
-archived.txt
 leads.html
 input.txt
 message.txt
