@@ -35,15 +35,15 @@ import random
 import re
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import quote, unquote
 
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
-from telethon import TelegramClient, errors
+from telethon import TelegramClient, errors, events
 from telethon.sessions import StringSession
 from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContactsRequest
-from telethon.tl.types import InputPhoneContact
+from telethon.tl.types import InputPeerUser, InputPhoneContact
 
 # ---------------------------------------------------------------------------
 # Конфигурация
@@ -71,6 +71,7 @@ SESSION_STRING = os.getenv("SESSION_STRING")
 LEADS_FILE = os.path.join(DATA_DIR, "leads.json")         # сюда складываются собранные компании
 PROCESSED_FILE = os.path.join(DATA_DIR, "processed.txt")  # номера, по которым уже отправляли
 ARCHIVED_FILE = os.path.join(DATA_DIR, "archived.txt")    # номера, ссылки на которые уже кинули в «Избранное»
+ANALYTICS_FILE = os.path.join(DATA_DIR, "analytics.json")  # ответы: кто согласился/отказал/промолчал
 
 # Город: слаг из адресной строки 2ГИС (2gis.ru/<слаг>/search/...)
 SEARCH_CITY = "Санкт-Петербург"
@@ -103,68 +104,152 @@ MIN_DELAY = 60    # минимальная пауза между сообщен�
 MAX_DELAY = 90    # максимальная пауза между сообщениями (сек)
 BATCH_SIZE = 50   # размер пачки: собрали 50 -> сводка в «Избранное» -> пишем каждому
 REST_TIME = 900   # перерыв между пачками (сек)
+IGNORE_HOURS = 48  # нет ответа дольше этого — получатель считается «проигнорил»
 
-# Шаблоны сообщений под нишу ({name} заменяется на название компании).
-# Для каждой ниши два варианта: no_site — у компании нет сайта, has_site — сайт есть.
+# Конструктор уникальных сообщений: каждому получателю — свой текст.
+# Сообщение собирается из трёх случайных частей: приветствие × тело (по нише
+# и наличию сайта) × закрывающий вопрос. Комбинаций — сотни на нишу, дубли
+# внутри запуска исключаются.
+GREETINGS = [
+    "Привет!",
+    "Здравствуйте!",
+    "Добрый день!",
+    "Приветствую!",
+]
+
+CLOSINGS = [
+    "Подскажите, актуален ли сейчас для вас такой вопрос?",
+    "Скажите, интересна ли вам эта тема?",
+    "Актуально ли это для вас сейчас?",
+    "Не думали об этом?",
+    "Если коротко — да или нет, буду рад ответу.",
+    "Хотелось бы узнать ваше мнение.",
+]
+
+# Дополнительная фраза — вклеивается, если случайно выпала уже отправленная
+# комбинация (крайне редко), чтобы текст остался уникальным.
+POSTSCRIPTS = [
+    "Если интересно — скину примеры работ и цены.",
+    "Могу за пару минут показать, как это будет выглядеть.",
+    "Готов ответить на любые вопросы.",
+    "Напишите, если интересно — обсудим детали.",
+]
+
+# Тела сообщений по нишам: {name} = название компании.
 # Ключи — слова, которые ищутся в тексте направления поиска.
 MESSAGE_TEMPLATES = [
     (("стоматолог", "дент", "медиц", "клиник"),
-     {"no_site":
-      "Привет! Нашел вашу клинику «{name}» в справочнике 2ГИС, но заметил, что у вас нет своего сайта. "
-      "Я занимаюсь разработкой и версткой удобных сайтов для клиник. "
-      "Подскажите, актуален ли сейчас вопрос создания сайта для привлечения пациентов?",
-      "has_site":
-      "Привет! Нашел вашу клинику «{name}» в 2ГИС. Занимаюсь разработкой сайтов для клиник: "
-      "онлайн-запись, каталог услуг, современный дизайн. "
-      "Подскажите, актуальна ли доработка или обновление вашего сайта?"}),
+     {"no_site": [
+         "Нашёл вашу клинику «{name}» в 2ГИС и обратил внимание, что своего сайта у вас пока нет. "
+         "Делаю сайты для клиник: онлайн-запись, перечень услуг, отзывы пациентов.",
+         "Увидел «{name}» в справочнике 2ГИС — сайта, судя по всему, у вас нет. "
+         "Занимаюсь разработкой сайтов для стоматологий: запись пациентов онлайн, прайс, удобная навигация.",
+         "Открыл карточку «{name}» в 2ГИС и заметил, что сайта у клиники нет. "
+         "Помогаю стоматологиям запускать сайты, которые приводят пациентов.",
+     ],
+         "has_site": [
+         "Нашёл вашу клинику «{name}» в 2ГИС. Занимаюсь разработкой и доработкой сайтов "
+         "для стоматологий: онлайн-запись, каталог услуг, скорость загрузки.",
+         "Увидел «{name}» в 2ГИС. Делаю современные сайты для клиник: запись, прайс, отзывы — "
+         "всё, чтобы пациенту было удобно выбрать вас.",
+         "Открыл «{name}» в 2ГИС. Помогаю клиникам с сайтами: редизайн, доработки, онлайн-запись.",
+     ]}),
     (("барбер", "салон", "красот", "парикмахер", "маникюр", "студия", "бьюти"),
-     {"no_site":
-      "Привет! Нашел ваш салон «{name}» в 2ГИС, у вас нет официального сайта. "
-      "Занимаюсь разработкой и версткой сайтов для бьюти-сферы. "
-      "Подскажите, актуально ли сейчас сделать удобный сайт-визитку или лендинг?",
-      "has_site":
-      "Привет! Нашел «{name}» в 2ГИС. Занимаюсь сайтами для бьюти-сферы: онлайн-запись, "
-      "портфолио мастеров, отзывы. Подскажите, актуально ли обновление или доработка вашего сайта?"}),
+     {"no_site": [
+         "Нашёл ваш салон «{name}» в 2ГИС — официального сайта, как я понял, у вас нет. "
+         "Делаю сайты для бьюти-сферы: онлайн-запись, портфолио мастеров, отзывы клиентов.",
+         "Увидел «{name}» в справочнике 2ГИС и заметил, что сайта у вас нет. "
+         "Занимаюсь сайтами для салонов и студий — от визитки до лендинга с онлайн-записью.",
+         "Открыл карточку «{name}» в 2ГИС: сайта нет, а клиентов из интернета хочется. "
+         "Помогаю салонам красоты запускать удобные сайты.",
+     ],
+         "has_site": [
+         "Нашёл «{name}» в 2ГИС. Занимаюсь сайтами для бьюти-сферы: онлайн-запись, "
+         "портфолио, быстрый современный дизайн.",
+         "Увидел ваш салон «{name}» в 2ГИС. Делаю и обновляю сайты для салонов — "
+         "думаю, вашему сайту могла бы пригодиться пара улучшений.",
+         "Открыл «{name}» в 2ГИС. Помогаю салонам красоты со сайтами: запись онлайн, "
+         "актуальный прайс, отзывы.",
+     ]}),
     (("авто", "сервис", "сто", "шиномонтаж", "детейлинг", "кузов"),
-     {"no_site":
-      "Привет! Искал автосервисы в 2ГИС и обратил внимание на «{name}» — у вас до сих пор нет своего сайта. "
-      "Занимаюсь разработкой сайтов с каталогом услуг. "
-      "Подскажите, интересен ли вам поток клиентов через собственный сайт?",
-      "has_site":
-      "Привет! Увидел «{name}» в 2ГИС. Делаю сайты для автосервисов: каталог услуг, онлайн-запись. "
-      "Актуально ли обновление вашего сайта или отдельный лендинг под акцию?"}),
+     {"no_site": [
+         "Искал автосервисы в 2ГИС и обратил внимание на «{name}» — своего сайта у вас, "
+         "похоже, нет. Делаю сайты для сервисов: каталог услуг, онлайн-запись, отзывы.",
+         "Увидел «{name}» в 2ГИС и заметил, что сайта нет. Занимаюсь сайтами для "
+         "автосервисов и СТО — клиентам проще выбрать тех, у кого есть сайт с ценами.",
+         "Открыл карточку «{name}» в 2ГИС: сайта нет. Помогаю автосервисам запускать "
+         "сайты с каталогом услуг и записью.",
+     ],
+         "has_site": [
+         "Увидел «{name}» в 2ГИС. Делаю сайты для автосервисов: каталог услуг, "
+         "онлайн-запись, фото работ.",
+         "Нашёл «{name}» в 2ГИС. Занимаюсь разработкой и доработкой сайтов для СТО — "
+         "от лендинга под акцию до полноценного каталога.",
+         "Открыл «{name}» в 2ГИС. Помогаю автосервисам с сайтами: обновление дизайна, "
+         "скорость, приём заявок.",
+     ]}),
     (("кафе", "ресторан", "доставка", "суши", "пицца", "кофейн", "бар", "столовая", "пекарн"),
-     {"no_site":
-      "Привет! Заметил в 2ГИС, что у «{name}» нет сайта для заказа или ознакомления с меню. "
-      "Занимаюсь разработкой сайтов для сферы общепита. Подскажите, актуальна ли для вас разработка сайта?",
-      "has_site":
-      "Привет! Нашел «{name}» в 2ГИС. Делаю сайты для кафе и ресторанов: меню, онлайн-заказ, "
-      "бронирование столиков. Подскажите, актуальна ли доработка вашего сайта?"}),
+     {"no_site": [
+         "Заметил в 2ГИС, что у «{name}» нет сайта с меню и заказом. "
+         "Делаю сайты для кафе и ресторанов: меню, бронирование, доставка.",
+         "Нашёл «{name}» в 2ГИС — сайта, судя по всему, нет. Занимаюсь сайтами для "
+         "общепита: онлайн-меню, заказ столиков, отзывы.",
+         "Увидел «{name}» в 2ГИС и подумал, что сайта вам не хватает. "
+         "Помогаю заведениям запускать красивые сайты с меню.",
+     ],
+         "has_site": [
+         "Нашёл «{name}» в 2ГИС. Делаю сайты для заведений: онлайн-меню, заказ, "
+         "бронирование — пригодилось бы и вашему сайту.",
+         "Увидел «{name}» в 2ГИС. Занимаюсь сайтами для общепита — возможно, "
+         "вашему сайту не хватает пары фишек.",
+         "Открыл «{name}» в 2ГИС. Помогаю кафе и ресторанам с сайтами: меню, заказ, скорость.",
+     ]}),
     (("спорт", "фитнес", "тренажер", "йог", "секци", "бассейн"),
-     {"no_site":
-      "Здравствуйте! Увидел «{name}» в 2ГИС, но сайта у вас нет. "
-      "Помогаю создавать сайты с расписанием и покупкой абонементов. Не думали над запуском сайта?",
-      "has_site":
-      "Здравствуйте! Увидел «{name}» в 2ГИС. Делаю сайты для фитнес-клубов: расписание, "
-      "покупка абонементов онлайн. Актуально ли обновление вашего сайта?"}),
+     {"no_site": [
+         "Увидел «{name}» в 2ГИС — сайта у вас нет. Делаю сайты для фитнес-клубов: "
+         "расписание, покупка абонементов, отзывы.",
+         "Нашёл «{name}» в 2ГИС и заметил, что сайта нет. Занимаюсь сайтами для "
+         "спортсекций и клубов.",
+         "Открыл карточку «{name}» в 2ГИС: своего сайта не нашёл. Помогаю спортивным "
+         "клубам запускать сайты с расписанием.",
+     ],
+         "has_site": [
+         "Увидел «{name}» в 2ГИС. Делаю сайты для фитнес-клубов: расписание, "
+         "абонементы онлайн.",
+         "Нашёл «{name}» в 2ГИС. Занимаюсь сайтами для спортивных клубов — обновление "
+         "дизайна, запись, оплата.",
+         "Открыл «{name}» в 2ГИС. Помогаю клубам с сайтами: расписание, онлайн-оплата, отзывы.",
+     ]}),
     (("детск", "развива", "центр"),
-     {"no_site":
-      "Здравствуйте! Нашел «{name}» в 2ГИС, но своего сайта у вас нет. "
-      "Занимаюсь разработкой сайтов для детских центров: расписание занятий, запись онлайн, отзывы. "
-      "Актуален ли сейчас вопрос создания сайта?",
-      "has_site":
-      "Здравствуйте! Нашел «{name}» в 2ГИС. Делаю сайты для детских центров: расписание, "
-      "запись онлайн, отзывы родителей. Актуальна ли доработка вашего сайта?"}),
+     {"no_site": [
+         "Нашёл «{name}» в 2ГИС — сайта у вас, похоже, нет. Делаю сайты для детских "
+         "центров: расписание, запись онлайн, отзывы родителей.",
+         "Увидел «{name}» в 2ГИС и заметил, что сайта нет. Занимаюсь сайтами для "
+         "детских студий и центров развития.",
+         "Открыл «{name}» в 2ГИС: сайта не нашёл. Помогаю детским центрам запускать "
+         "удобные сайты с записью.",
+     ],
+         "has_site": [
+         "Нашёл «{name}» в 2ГИС. Делаю сайты для детских центров: расписание, запись, отзывы.",
+         "Увидел «{name}» в 2ГИС. Занимаюсь сайтами для детских студий — обновление и доработка.",
+         "Открыл «{name}» в 2ГИС. Помогаю центрам развития с сайтами: запись онлайн, программы.",
+     ]}),
 ]
 DEFAULT_TEMPLATES = {
-    "no_site":
-    "Привет! Нашел вашу компанию «{name}» в справочнике 2ГИС и обратил внимание, "
-    "что у вас нет собственного сайта. Я занимаюсь веб-разработкой и версткой. "
-    "Подскажите, актуален ли сейчас вопрос создания сайта для вашего бизнеса?",
-    "has_site":
-    "Привет! Нашел вашу компанию «{name}» в 2ГИС. Занимаюсь разработкой и обновлением "
-    "сайтов для бизнеса: современный дизайн, скорость, онлайн-заявки. "
-    "Подскажите, актуальна ли доработка вашего сайта?",
+    "no_site": [
+        "Нашёл вашу компанию «{name}» в 2ГИС и обратил внимание, что собственного сайта "
+        "у вас нет. Занимаюсь веб-разработкой для бизнеса.",
+        "Увидел «{name}» в справочнике 2ГИС — сайта, судя по всему, у вас нет. "
+        "Делаю сайты: лендинги, визитки, каталоги.",
+        "Открыл карточку «{name}» в 2ГИС: сайта не нашёл. Помогаю бизнесу запускать "
+        "сайты под задачи.",
+    ],
+    "has_site": [
+        "Нашёл вашу компанию «{name}» в 2ГИС. Занимаюсь разработкой и обновлением "
+        "сайтов для бизнеса.",
+        "Увидел «{name}» в 2ГИС. Делаю сайты: современный дизайн, скорость, заявки.",
+        "Открыл «{name}» в 2ГИС. Помогаю с сайтами: редизайн, доработки, поддержка.",
+    ],
 }
 
 # Известные слаги городов 2ГИС
@@ -551,15 +636,39 @@ def load_leads():
 # Сообщения
 # ---------------------------------------------------------------------------
 
+_used_full_texts = set()  # уже отправленные тексты за запуск — гарантирует уникальность
+
+
 def generate_message(lead, custom_text=None):
+    """Собирает уникальный текст: приветствие + тело под нишу + закрытие.
+
+    Комбинации случайны и не повторяются внутри запуска (проверка по полному
+    тексту), так что все 50 получателей пачки получают разные сообщения.
+    """
     if custom_text:
         return custom_text.replace("{name}", lead.get("name") or "")
+
     niche = (lead.get("niche") or "").lower()
     variant = "has_site" if lead.get("has_site") else "no_site"
+    bodies = None
     for keys, tmpls in MESSAGE_TEMPLATES:
         if any(k in niche for k in keys):
-            return tmpls[variant].replace("{name}", lead.get("name") or "")
-    return DEFAULT_TEMPLATES[variant].replace("{name}", lead.get("name") or "")
+            bodies = tmpls[variant]
+            break
+    if bodies is None:
+        bodies = DEFAULT_TEMPLATES[variant]
+
+    name = lead.get("name") or ""
+    for _ in range(25):
+        msg = (f"{random.choice(GREETINGS)} "
+               f"{random.choice(bodies).replace('{name}', name)} "
+               f"{random.choice(CLOSINGS)}")
+        if random.random() < 0.3:
+            msg += " " + random.choice(POSTSCRIPTS)
+        if msg not in _used_full_texts:
+            _used_full_texts.add(msg)
+            return msg
+    return msg  # комбинации кончились (практически невозможно) — шлём как есть
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +697,160 @@ def load_archived():
 def save_archived(key):
     with open(ARCHIVED_FILE, "a", encoding="utf-8") as f:
         f.write(key.lower() + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Аналитика ответов: кто согласился, кто отказал, кто проигнорил
+# ---------------------------------------------------------------------------
+
+DECLINE_RE = re.compile(
+    r"не\s?актуальн|не\s?нужн|не\s?надо|не\s?интерес|неинтерес|не\s?требу|"
+    r"уже есть|у нас есть|отпад|не\s?сейчас|не\s?пишите|не\s?звоните|отстань|"
+    r"спам|жалоб[уи]|дорог|нет денег|\bнет\b|\bнеа\b|не, спасибо")
+INTEREST_RE = re.compile(
+    r"интересн|актуальн|дава[йит]|конечно|хорошо|\bок\b|\bда\b|хочу|"
+    r"сколько|цена|расцен|покажи|скинь|пример|портфолио|обсуди|"
+    r"звоните|позвоните|набер|напишите|жду|давайте|давно думал")
+
+
+def classify_reply(text):
+    """Категория ответа: 'interested' | 'declined' | 'other' (или None)."""
+    if not text or not text.strip():
+        return None
+    t = text.lower().strip()
+    if DECLINE_RE.search(t):
+        return "declined"    # «не актуально», «не надо», «уже есть»...
+    if INTEREST_RE.search(t):
+        return "interested"  # «да, актуально», «сколько стоит»...
+    return "other"           # ответ есть, но по смыслу непонятен
+
+
+def now_utc_str():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+
+
+def parse_utc_str(s):
+    return datetime.strptime(s, "%Y-%m-%d %H:%M")
+
+
+def load_analytics():
+    if not os.path.exists(ANALYTICS_FILE):
+        return {}
+    with open(ANALYTICS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_analytics(data):
+    with open(ANALYTICS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+
+
+def record_sent(lead, peer=None):
+    """Фиксирует факт отправки — дальше по этому ключу ловим ответ."""
+    data = load_analytics()
+    key = str(peer.get("user_id")) if peer and peer.get("user_id") else (lead.get("phone") or "")
+    if not key:
+        return
+    data[key] = {
+        "phone": lead.get("phone"),
+        "user_id": (peer or {}).get("user_id"),
+        "access_hash": (peer or {}).get("access_hash"),
+        "name": lead.get("name"),
+        "niche": lead.get("niche"),
+        "sent_at": now_utc_str(),
+        "status": "sent",
+        "category": None,
+        "reply_text": None,
+        "replied_at": None,
+    }
+    save_analytics(data)
+
+
+async def sweep_replies(client):
+    """Проходит по тем, кому писали, читает их последние сообщения и
+    классифицирует ответы. Возвращает число новых классифицированных."""
+    data = load_analytics()
+    changed = 0
+    for key, info in data.items():
+        if info.get("status") != "sent":
+            continue
+        uid, ah = info.get("user_id"), info.get("access_hash")
+        if not uid or not ah:
+            continue
+        try:
+            peer = InputPeerUser(int(uid), int(ah))
+            msgs = await client.get_messages(peer, limit=5)
+        except Exception:
+            continue  # не достали (личка закрыта и т.п.) — попробуем в следующий раз
+        sent_dt = parse_utc_str(info["sent_at"])
+        for m in msgs:
+            if m.out:
+                continue
+            incoming_dt = m.date.astimezone(timezone.utc).replace(tzinfo=None)
+            if incoming_dt < sent_dt:
+                break
+            info["status"] = "replied"
+            info["category"] = classify_reply(m.text) or "other"
+            info["reply_text"] = (m.text or "(без текста)")[:200]
+            info["replied_at"] = incoming_dt.strftime("%Y-%m-%d %H:%M")
+            changed += 1
+            break  # свежий ответ главнее старых
+    if changed:
+        save_analytics(data)
+    return changed
+
+
+def build_report_text():
+    """Сводный отчёт по всей аналитике."""
+    data = load_analytics()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    interested, declined, other, waiting, ignored = [], [], [], [], []
+    for info in data.values():
+        if info.get("status") == "replied":
+            {"interested": interested, "declined": declined}.get(
+                info.get("category"), other).append(info)
+        else:
+            age_h = (now - parse_utc_str(info["sent_at"])).total_seconds() / 3600
+            (waiting if age_h < IGNORE_HOURS else ignored).append(info)
+
+    total = len(data) or 1
+    lines = [
+        "📊 Аналитика рассылки (весь прогресс)",
+        f"Отправлено всего: {len(data)}",
+        f"✅ Заинтересовались: {len(interested)} ({len(interested) * 100 // total}%)",
+        f"❌ Отказали («не актуально/не надо»): {len(declined)} ({len(declined) * 100 // total}%)",
+        f"❓ Другие ответы: {len(other)} ({len(other) * 100 // total}%)",
+        f"⏳ Ждут ответа (<{IGNORE_HOURS} ч): {len(waiting)}",
+        f"🔇 Проигнорили (>{IGNORE_HOURS} ч без ответа): {len(ignored)} ({len(ignored) * 100 // total}%)",
+    ]
+
+    # разбивка по нишам
+    niches = {}
+    for info in data.values():
+        n = info.get("niche") or "—"
+        stat = niches.setdefault(n, {"sent": 0, "interested": 0, "declined": 0})
+        stat["sent"] += 1
+        if info.get("category") == "interested":
+            stat["interested"] += 1
+        elif info.get("category") == "declined":
+            stat["declined"] += 1
+    if niches:
+        lines.append("\nПо направлениям:")
+        for n, stat in sorted(niches.items(), key=lambda kv: -kv[1]["interested"])[:8]:
+            lines.append(f"  {n}: отправлено {stat['sent']}, ✅ {stat['interested']}, ❌ {stat['declined']}")
+
+    if interested:
+        lines.append("\n🎯 Последние заинтересованные (напишите им первыми!):")
+        for info in sorted(interested, key=lambda i: i.get("replied_at") or "", reverse=True)[:5]:
+            lines.append(f"  {info.get('phone')} — {info.get('name')} | «{(info.get('reply_text') or '')[:60]}»")
+
+    return "\n".join(lines)
+
+
+async def send_analytics_report(client):
+    text = build_report_text()
+    await client.send_message("me", text)
+    print("\n" + text)
 
 
 async def archive_to_saved(client, lead):
@@ -619,7 +882,9 @@ async def archive_to_saved(client, lead):
 
 
 async def send_msg_by_phone(client, phone, message):
-    """Импортирует номер как контакт, отправляет сообщение, удаляет контакт."""
+    """Импортирует номер как контакт, отправляет сообщение, удаляет контакт.
+
+    Возвращает объект пользователя (для аналитики ответов)."""
     if not phone.startswith("+"):
         phone = "+" + phone
     contact = InputPhoneContact(client_id=0, phone=phone, first_name="Lead", last_name="")
@@ -629,6 +894,7 @@ async def send_msg_by_phone(client, phone, message):
     user = result.users[0]
     await client.send_message(user, message)
     await client(DeleteContactsRequest(id=[user]))
+    return user
 
 
 def _lead_targets(item):
@@ -653,9 +919,10 @@ def _lead_targets(item):
 async def _deliver(client, item, message, processed):
     """Пробует доставить сообщение по всем целям лида.
 
-    Возвращает использованную цель ('@username' или '+7...') или None, если
-    доставить не удалось. Постоянные ошибки (номер не в Telegram) помечает
-    в processed.txt, FloodWaitError пробрасывает наверх.
+    Возвращает (цель, peer): цель — '@username' или '+7...', peer — данные
+    пользователя для аналитики ответов ({user_id, access_hash}) или None.
+    Постоянные ошибки (номер не в Telegram) помечает в processed.txt,
+    FloodWaitError пробрасывает наверх.
     """
     for kind, target in _lead_targets(item):
         if kind == "phone" and target.lower() in processed:
@@ -664,10 +931,17 @@ async def _deliver(client, item, message, processed):
             if kind == "username":
                 print(f"  [->] Пишу в Telegram @{target} (из карточки 2ГИС)...")
                 await client.send_message(target, message)
-            else:
-                print(f"  [->] Пишу на номер {target} (через импорт контакта)...")
-                await send_msg_by_phone(client, target, message)
-            return target
+                peer = None
+                try:
+                    entity = await client.get_input_entity(target)
+                    if isinstance(entity, InputPeerUser):
+                        peer = {"user_id": entity.user_id, "access_hash": entity.access_hash}
+                except Exception:
+                    pass
+                return target, peer
+            print(f"  [->] Пишу на номер {target} (через импорт контакта)...")
+            user = await send_msg_by_phone(client, target, message)
+            return target, {"user_id": user.id, "access_hash": user.access_hash}
         except errors.FloodWaitError:
             raise
         except (NotInTelegram,
@@ -686,7 +960,7 @@ async def _deliver(client, item, message, processed):
         except Exception as e:
             print(f"  [-] Ошибка при отправке на {target}: {e}")
             continue
-    return None
+    return None, None
 
 
 async def send_batch_digest(client, batch):
@@ -753,20 +1027,21 @@ async def send_all(leads, limit=None, custom_text=None):
         print(f"\n[📞] {label} | тел: {item.get('phone')}{tg_note}")
         print(f"[💬] {message[:120]}...")
 
-        target = None
+        target = peer = None
         try:
-            target = await _deliver(tg_client, item, message, processed)
+            target, peer = await _deliver(tg_client, item, message, processed)
         except errors.FloodWaitError as e:
             wait = e.seconds + 5
             print(f"[!] FloodWait от Telegram: жду {wait} сек...")
             await asyncio.sleep(wait)
             try:
-                target = await _deliver(tg_client, item, message, processed)
+                target, peer = await _deliver(tg_client, item, message, processed)
             except Exception as e2:
                 print(f"[-] Повторная отправка не удалась: {e2}")
 
         if target:
             print("[+] Успешно отправлено!")
+            record_sent(item, peer)  # запоминаем — теперь ждём от него ответ
             save_processed(target)
             processed.add(target.lower())
             for ph in lead_phones:  # компанию целиком помечаем, чтобы не писать повторно
@@ -911,6 +1186,10 @@ async def async_main(args):
             for lead in leads:
                 if await archive_to_saved(tg_client, lead):
                     archived += 1
+            changed = await sweep_replies(tg_client)
+            if changed:
+                print(f"[📊] Классифицировано новых ответов: {changed}")
+            await send_analytics_report(tg_client)
         finally:
             await tg_client.disconnect()
         print(f"[✅] Ссылки на новых лидов ({archived} шт.) добавлены в «Избранное»")
@@ -922,6 +1201,27 @@ async def async_main(args):
     await tg_client.start(phone=PHONE_NUMBER or None)
     me = await tg_client.get_me()
     print(f"[+] Telegram аккаунт: {me.first_name} ({me.phone})")
+
+    # Аналитика: разбираем ответы, пришедшие с прошлого запуска
+    changed = await sweep_replies(tg_client)
+    if changed:
+        print(f"[📊] Классифицировано новых ответов: {changed}")
+
+    # ...и ловим ответы прямо во время рассылки
+    async def _on_reply(event):
+        key = str(event.sender_id)
+        data = load_analytics()
+        info = data.get(key)
+        if info and info.get("status") == "sent":
+            info["status"] = "replied"
+            info["category"] = classify_reply(event.text) or "other"
+            info["reply_text"] = (event.text or "(без текста)")[:200]
+            info["replied_at"] = now_utc_str()
+            save_analytics(data)
+            print(f"[📊] Ответ от {info.get('name')} ({info.get('phone')}): "
+                  f"«{(event.text or '')[:60]}» → {info['category']}")
+
+    tg_client.add_event_handler(_on_reply, events.NewMessage(incoming=True))
 
     try:
         leads = load_leads()
@@ -945,6 +1245,9 @@ async def async_main(args):
                 print(f"[*] Использую текст сообщения из {args.message_file}")
 
         await send_all(leads, limit=args.limit, custom_text=custom_text)
+
+        # Круг аналитики: сводный отчёт в «Избранное» и в консоль
+        await send_analytics_report(tg_client)
     finally:
         await tg_client.disconnect()
 
