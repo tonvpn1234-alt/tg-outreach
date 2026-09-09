@@ -43,7 +43,8 @@ from playwright.async_api import async_playwright
 from telethon import TelegramClient, errors, events
 from telethon.sessions import StringSession
 from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContactsRequest
-from telethon.tl.types import InputPeerUser, InputPhoneContact
+from telethon.tl.functions.messages import GetDialogFiltersRequest, UpdateDialogFilterRequest
+from telethon.tl.types import DialogFilter, InputPeerUser, InputPhoneContact, TextWithEntities
 
 # ---------------------------------------------------------------------------
 # Конфигурация
@@ -794,6 +795,9 @@ async def sweep_replies(client):
             info["reply_text"] = (m.text or "(без текста)")[:200]
             info["replied_at"] = incoming_dt.strftime("%Y-%m-%d %H:%M")
             changed += 1
+            if info["category"] == "interested" and not info.get("in_clients_folder"):
+                if await add_to_clients_folder(client, uid, ah, info.get("phone")):
+                    info["in_clients_folder"] = True
             break  # свежий ответ главнее старых
     if changed:
         save_analytics(data)
@@ -845,6 +849,68 @@ def build_report_text():
             lines.append(f"  {info.get('phone')} — {info.get('name')} | «{(info.get('reply_text') or '')[:60]}»")
 
     return "\n".join(lines)
+
+
+_folder_title_cache = None
+
+
+def _folder_title(text):
+    """Заголовок папки: в новых слоях Telethon нужен TextWithEntities, в старых — str."""
+    global _folder_title_cache
+    if _folder_title_cache is None:
+        try:
+            bytes(DialogFilter(id=1, title=text, pinned_peers=[], include_peers=[], exclude_peers=[]))
+            _folder_title_cache = text
+        except Exception:
+            _folder_title_cache = TextWithEntities(text=text, entities=[])
+    return _folder_title_cache
+
+
+async def add_to_clients_folder(client, user_id=None, access_hash=None, phone=None):
+    """Добавляет согласившегося лида в папку «Клиенты» в Telegram (создаёт её)."""
+    peer = None
+    if user_id and access_hash:
+        peer = InputPeerUser(int(user_id), int(access_hash))
+    elif phone:
+        # прямого ключа нет — резолвим через краткий импорт контакта
+        try:
+            res = await client(ImportContactsRequest(
+                [InputPhoneContact(client_id=0, phone=phone, first_name="Lead", last_name="")]))
+            if res.users:
+                u = res.users[0]
+                peer = InputPeerUser(u.id, u.access_hash)
+                await client(DeleteContactsRequest(id=[u]))
+        except Exception as e:
+            print(f"[!] Не удалось резолвить {phone} для папки «Клиенты»: {e}")
+            return False
+    if not peer:
+        return False
+
+    try:
+        flist = await client(GetDialogFiltersRequest())
+        items = getattr(flist, "filters", None) or list(flist)
+        target = None
+        for f in items:
+            t = getattr(f, "title", None)
+            if (t == "Клиенты" or getattr(t, "text", None) == "Клиенты") and hasattr(f, "include_peers"):
+                target = f
+                break
+        if target is None:
+            used = {f.id for f in items if hasattr(f, "id") and isinstance(getattr(f, "id", None), int)}
+            target = DialogFilter(id=max(used | {1}) + 1, title=_folder_title("Клиенты"),
+                                  include_peers=[], exclude_peers=[], pinned_peers=[])
+        if peer in target.include_peers:
+            return True
+        target.include_peers.append(peer)
+        await client(UpdateDialogFilterRequest(id=target.id, filter=target))
+        return True
+    except errors.FloodWaitError as e:
+        print(f"[!] FloodWait при обновлении папки «Клиенты»: жду {e.seconds} сек")
+        await asyncio.sleep(e.seconds + 5)
+        return False
+    except Exception as e:
+        print(f"[!] Не удалось обновить папку «Клиенты»: {e}")
+        return False
 
 
 async def send_analytics_report(client):
@@ -1227,9 +1293,14 @@ async def async_main(args):
             info["category"] = classify_reply(event.text) or "other"
             info["reply_text"] = (event.text or "(без текста)")[:200]
             info["replied_at"] = now_utc_str()
+            if info["category"] == "interested" and not info.get("in_clients_folder"):
+                if await add_to_clients_folder(tg_client, info.get("user_id"),
+                                               info.get("access_hash"), info.get("phone")):
+                    info["in_clients_folder"] = True
             save_analytics(data)
             print(f"[📊] Ответ от {info.get('name')} ({info.get('phone')}): "
-                  f"«{(event.text or '')[:60]}» → {info['category']}")
+                  f"«{(event.text or '')[:60]}» → {info['category']}"
+                  + (" | добавлен в папку «Клиенты»" if info.get("in_clients_folder") else ""))
 
     tg_client.add_event_handler(_on_reply, events.NewMessage(incoming=True))
 

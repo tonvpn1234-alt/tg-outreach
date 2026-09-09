@@ -69,7 +69,8 @@
   "status": "replied",
   "category": "interested",
   "reply_text": "Здравствуйте, передали информацию руководству 🥰",
-  "replied_at": "2026-09-08 13:29"
+  "replied_at": "2026-09-08 13:29",
+  "in_clients_folder": true
  },
  "real_nerf_arena": {
   "phone": "+79390791912",
