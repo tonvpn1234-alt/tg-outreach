@@ -919,11 +919,13 @@ def _lead_targets(item):
 async def _deliver(client, item, message, processed):
     """Пробует доставить сообщение по всем целям лида.
 
-    Возвращает (цель, peer): цель — '@username' или '+7...', peer — данные
-    пользователя для аналитики ответов ({user_id, access_hash}) или None.
+    Возвращает (цель, peer, причина): цель — '@username' или '+7...', peer —
+    данные пользователя для аналитики ({user_id, access_hash}) или None,
+    причина — 'not_in_tg' | 'error' | None (при успехе None).
     Постоянные ошибки (номер не в Telegram) помечает в processed.txt,
     FloodWaitError пробрасывает наверх.
     """
+    last_reason = None
     for kind, target in _lead_targets(item):
         if kind == "phone" and target.lower() in processed:
             continue
@@ -938,10 +940,10 @@ async def _deliver(client, item, message, processed):
                         peer = {"user_id": entity.user_id, "access_hash": entity.access_hash}
                 except Exception:
                     pass
-                return target, peer
+                return target, peer, None
             print(f"  [->] Пишу на номер {target} (через импорт контакта)...")
             user = await send_msg_by_phone(client, target, message)
-            return target, {"user_id": user.id, "access_hash": user.access_hash}
+            return target, {"user_id": user.id, "access_hash": user.access_hash}, None
         except errors.FloodWaitError:
             raise
         except (NotInTelegram,
@@ -952,15 +954,18 @@ async def _deliver(client, item, message, processed):
             processed.add(target.lower())
             if kind == "phone":
                 save_processed(target)  # постоянная ошибка — больше не пробуем
+            last_reason = "not_in_tg"
             continue
         except ValueError as e:
             # у Telethon ValueError, если username не найден
             print(f"  [-] @{target}: {e}")
+            last_reason = "not_in_tg"
             continue
         except Exception as e:
             print(f"  [-] Ошибка при отправке на {target}: {e}")
+            last_reason = "error"
             continue
-    return None, None
+    return None, None, last_reason
 
 
 async def send_batch_digest(client, batch):
@@ -997,6 +1002,9 @@ async def send_all(leads, limit=None, custom_text=None):
         if lead_phones and all(ph.lower() in processed for ph in lead_phones):
             continue
         pending.append(item)
+    # лиды с Telegram из карточки (юзернейм/tg-телефон) доставляются надёжнее —
+    # пишем им в первую очередь
+    pending.sort(key=lambda l: 0 if (l.get("tg_username") or l.get("tg_phone")) else 1)
     if limit is not None:
         pending = pending[:limit]
 
@@ -1027,15 +1035,15 @@ async def send_all(leads, limit=None, custom_text=None):
         print(f"\n[📞] {label} | тел: {item.get('phone')}{tg_note}")
         print(f"[💬] {message[:120]}...")
 
-        target = peer = None
+        target = peer = fail_reason = None
         try:
-            target, peer = await _deliver(tg_client, item, message, processed)
+            target, peer, fail_reason = await _deliver(tg_client, item, message, processed)
         except errors.FloodWaitError as e:
             wait = e.seconds + 5
             print(f"[!] FloodWait от Telegram: жду {wait} сек...")
             await asyncio.sleep(wait)
             try:
-                target, peer = await _deliver(tg_client, item, message, processed)
+                target, peer, fail_reason = await _deliver(tg_client, item, message, processed)
             except Exception as e2:
                 print(f"[-] Повторная отправка не удалась: {e2}")
 
@@ -1061,9 +1069,11 @@ async def send_all(leads, limit=None, custom_text=None):
                 print(f"[*] Пауза перед следующим получателем: {delay} сек...")
                 await asyncio.sleep(delay)
         else:
-            print("[-] Автоматически отправить не удалось (номер не в Telegram). "
-                  "Ссылка сохранена в «Избранное» — можно написать вручную.")
-            not_in_tg += 1
+            if fail_reason == "not_in_tg":
+                # штатная ситуация (номер не в Telegram) — идём к следующему без пауз
+                not_in_tg += 1
+                continue
+            print("[-] Отправить не удалось — ошибка доставки.")
             failures_in_row += 1
             await asyncio.sleep(15)
 
