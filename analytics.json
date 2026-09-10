@@ -1183,9 +1183,9 @@
   "name": "ФитПрофи, фитнес-клуб",
   "niche": "фитнес-клубы",
   "sent_at": "2026-09-10 13:59",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "declined",
+  "reply_text": "Добрый день! Сайт у нас есть, спасибо",
+  "replied_at": "2026-09-10 15:33"
  }
 }
