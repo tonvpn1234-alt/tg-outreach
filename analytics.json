@@ -1605,10 +1605,10 @@
   "name": "Цех, фитнес с характером",
   "niche": "фитнес-клубы",
   "sent_at": "2026-09-11 13:32",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "declined",
+  "reply_text": "Пока не интересно",
+  "replied_at": "2026-09-13 15:59"
  },
  "8648204710": {
   "phone": "+79371665636",
@@ -2301,10 +2301,10 @@
   "name": "Инфиз, фитнес-клуб",
   "niche": "фитнес-клубы",
   "sent_at": "2026-09-13 13:23",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "other",
+  "reply_text": "И вам.",
+  "replied_at": "2026-09-13 14:35"
  },
  "8724811953": {
   "phone": "+79173387999",
@@ -2697,6 +2697,18 @@
   "name": "Tor Motors, автосервис",
   "niche": "автосервисы",
   "sent_at": "2026-09-13 14:05",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "5633680630": {
+  "phone": "+79180101818",
+  "user_id": 5633680630,
+  "access_hash": 7339122691286146600,
+  "name": "Пора, салон красоты",
+  "niche": "салоны красоты",
+  "sent_at": "2026-09-13 18:46",
   "status": "sent",
   "category": null,
   "reply_text": null,
