@@ -1207,10 +1207,10 @@
   "name": "Старт, фитнес-клуб",
   "niche": "фитнес-клубы",
   "sent_at": "2026-09-11 12:50",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "other",
+  "reply_text": "(без текста)",
+  "replied_at": "2026-09-14 12:47"
  },
  "577517218": {
   "phone": "+79625259153",
@@ -1989,10 +1989,10 @@
   "name": "World Class, фитнес-клуб",
   "niche": "фитнес-клубы",
   "sent_at": "2026-09-12 12:35",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "declined",
+  "reply_text": "Добрый день.\nБлагодарим Вас за обращение \nНа текущий момент не актуально.\n\nС уважением, Ворлд Класс Красноярск",
+  "replied_at": "2026-09-14 05:04"
  },
  "1867798930": {
   "phone": "+79676090500",
@@ -2265,10 +2265,10 @@
   "name": "Bambini club, частный детский сад",
   "niche": "детские центры",
   "sent_at": "2026-09-13 13:20",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "other",
+  "reply_text": "Будем на связи",
+  "replied_at": "2026-09-14 12:24"
  },
  "6120006569": {
   "phone": "+79003015809",
@@ -2529,10 +2529,10 @@
   "name": "Старик Хинкалыч, кафе",
   "niche": "кафе",
   "sent_at": "2026-09-13 13:46",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "declined",
+  "reply_text": "Здравствуйте. Не интересует",
+  "replied_at": "2026-09-14 06:13"
  },
  "1042467296": {
   "phone": "+79377402127",
@@ -2685,10 +2685,11 @@
   "name": "Lite Clinic, стоматологическая клиника",
   "niche": "стоматологии",
   "sent_at": "2026-09-13 14:04",
-  "status": "sent",
-  "category": null,
-  "reply_text": null,
-  "replied_at": null
+  "status": "replied",
+  "category": "interested",
+  "reply_text": "Добрый день, напишите Ваше обращение на эл.почту",
+  "replied_at": "2026-09-14 05:51",
+  "in_clients_folder": true
  },
  "6807923088": {
   "phone": "+79282731489",
@@ -2709,6 +2710,78 @@
   "name": "Пора, салон красоты",
   "niche": "салоны красоты",
   "sent_at": "2026-09-13 18:46",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "7462430915": {
+  "phone": "+79122317080",
+  "user_id": 7462430915,
+  "access_hash": 7664856607289757485,
+  "name": "Поповъ, бар",
+  "niche": "кафе",
+  "sent_at": "2026-09-14 15:01",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "2111455631": {
+  "phone": "+79028787338",
+  "user_id": 2111455631,
+  "access_hash": 4169907247846602036,
+  "name": "ЗОЛОТОЙ БАМБУК, кафе домашней вьетнамской кухни",
+  "niche": "кафе",
+  "sent_at": "2026-09-14 15:03",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "8146575372": {
+  "phone": "+79122823326",
+  "user_id": 8146575372,
+  "access_hash": 8291757142294847242,
+  "name": "Чудо-обучайка, образовательный центр раннего развития",
+  "niche": "детские центры",
+  "sent_at": "2026-09-14 15:04",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "8503124112": {
+  "phone": "+79772112192",
+  "user_id": 8503124112,
+  "access_hash": 8944897073871460358,
+  "name": "Эксперт, центр реабилитации и развития",
+  "niche": "детские центры",
+  "sent_at": "2026-09-14 15:05",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "5047559381": {
+  "phone": "+79222088101",
+  "user_id": 5047559381,
+  "access_hash": 1765552046735312443,
+  "name": "Яркие дети, детский центр",
+  "niche": "детские центры",
+  "sent_at": "2026-09-14 15:07",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "8580849263": {
+  "phone": "+79193951869",
+  "user_id": 8580849263,
+  "access_hash": 8986915967660918776,
+  "name": "Беби-Ситтер, частный детский сад",
+  "niche": "детские центры",
+  "sent_at": "2026-09-14 15:08",
   "status": "sent",
   "category": null,
   "reply_text": null,
