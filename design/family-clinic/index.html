@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>УлыбкаFAMILY — семейная стоматология | Дизайн-макет</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FFF9F1;
+    --cream-2:#FFF3E6;
+    --ink:#1F3B35;
+    --ink-soft:#4C6660;
+    --teal:#0E9F8A;
+    --teal-dark:#0A7D6E;
+    --teal-deep:#0B5F55;
+    --mint:#E3F4EF;
+    --mint-2:#D2ECE4;
+    --coral:#FF7A59;
+    --coral-soft:#FFE3D9;
+    --sun:#FFC94D;
+    --sun-soft:#FFF1CE;
+    --lav:#8B7CF6;
+    --lav-soft:#E9E5FD;
+    --white:#FFFFFF;
+    --radius-xl:32px;
+    --radius-lg:24px;
+    --radius-md:18px;
+    --shadow-card:0 18px 40px -18px rgba(31,59,53,.18);
+    --shadow-pop:0 24px 50px -20px rgba(31,59,53,.28);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Manrope','Segoe UI',system-ui,sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+    line-height:1.55;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,.font-head{font-family:'Nunito','Segoe UI',system-ui,sans-serif;}
+  img,svg{display:block;}
+  a{text-decoration:none;color:inherit;}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 32px;}
+
+  /* ============ TOP BAR ============ */
+  .topbar{background:var(--teal-deep);color:#CBE9E2;font-size:13.5px;font-weight:600;}
+  .topbar .wrap{display:flex;justify-content:space-between;align-items:center;height:38px;}
+  .topbar span b{color:#fff;}
+  .topbar-right{display:flex;gap:22px;align-items:center;}
+
+  /* ============ HEADER ============ */
+  header.site{position:sticky;top:0;z-index:50;background:rgba(255,249,241,.92);backdrop-filter:blur(14px);border-bottom:1px solid rgba(31,59,53,.07);}
+  .nav{display:flex;align-items:center;gap:36px;height:78px;}
+  .logo{display:flex;align-items:center;gap:12px;font-family:'Nunito';font-weight:900;font-size:22px;letter-spacing:-.3px;}
+  .logo .mark{width:46px;height:46px;border-radius:15px;background:linear-gradient(135deg,var(--teal) 0%,#12B89F 100%);display:grid;place-items:center;box-shadow:0 10px 20px -8px rgba(14,159,138,.55);}
+  .logo small{display:block;font-family:'Manrope';font-weight:600;font-size:11px;color:var(--ink-soft);letter-spacing:.4px;text-transform:uppercase;}
+  .nav-links{display:flex;gap:28px;font-weight:600;font-size:15px;color:var(--ink-soft);margin-left:8px;}
+  .nav-links a{transition:color .2s;}
+  .nav-links a:hover{color:var(--teal);}
+  .nav-links a.kids{color:var(--coral);font-weight:800;}
+  .nav-right{margin-left:auto;display:flex;align-items:center;gap:20px;}
+  .nav-phone{font-family:'Nunito';font-weight:900;font-size:17px;white-space:nowrap;}
+  .nav-phone small{display:block;font-family:'Manrope';font-weight:600;font-size:11px;color:var(--ink-soft);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-family:'Nunito';font-weight:800;font-size:15.5px;border-radius:16px;padding:13px 26px;cursor:pointer;border:none;transition:transform .18s,box-shadow .18s;white-space:nowrap;}
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--coral);color:#fff;box-shadow:0 14px 28px -10px rgba(255,122,89,.55);}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 34px -10px rgba(255,122,89,.6);}
+  .btn-teal{background:var(--teal);color:#fff;box-shadow:0 14px 28px -10px rgba(14,159,138,.5);}
+  .btn-teal:hover{transform:translateY(-2px);}
+  .btn-ghost{background:transparent;color:var(--ink);border:2px solid rgba(31,59,53,.16);}
+  .btn-ghost:hover{border-color:var(--teal);color:var(--teal);}
+  .btn-lg{padding:17px 34px;font-size:17px;border-radius:18px;}
+
+  /* ============ HERO ============ */
+  .hero{position:relative;padding:58px 0 0;overflow:hidden;}
+  .hero-bg-blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;pointer-events:none;}
+  .blob-1{width:520px;height:520px;background:#FFE7D2;top:-140px;right:-120px;}
+  .blob-2{width:420px;height:420px;background:#D5F0E8;top:180px;left:-160px;}
+  .blob-3{width:260px;height:260px;background:var(--sun-soft);bottom:-60px;left:38%;}
+  .hero .wrap{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;}
+  .chip{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px;letter-spacing:.2px;padding:9px 16px;border-radius:999px;}
+  .chip-teal{background:var(--mint);color:var(--teal-dark);}
+  .chip-coral{background:var(--coral-soft);color:#D9481F;}
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .hero h1{font-size:52px;line-height:1.08;font-weight:900;letter-spacing:-1.2px;margin:20px 0 18px;}
+  .hero h1 .accent{color:var(--teal);position:relative;white-space:nowrap;}
+  .hero h1 .accent svg{position:absolute;left:0;bottom:-8px;width:100%;height:14px;}
+  .hero h1 .accent-kids{color:var(--coral);}
+  .hero-sub{font-size:18px;color:var(--ink-soft);max-width:520px;margin-bottom:30px;}
+  .hero-sub b{color:var(--ink);}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:34px;}
+  .hero-trust{display:flex;gap:14px;flex-wrap:wrap;}
+  .trust-item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:12px 18px 12px 12px;box-shadow:0 10px 24px -14px rgba(31,59,53,.22);}
+  .trust-item .ic{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;}
+  .trust-item b{font-family:'Nunito';font-size:15.5px;display:block;line-height:1.2;}
+  .trust-item span{font-size:12.5px;color:var(--ink-soft);font-weight:600;}
+
+  /* hero visual */
+  .hero-visual{position:relative;}
+  .hero-visual .scene{
+    border-radius:44px;
+    background:linear-gradient(160deg,#CDEFE6 0%,#AEE3D6 55%,#8FD9C8 100%);
+    box-shadow:var(--shadow-pop);
+    overflow:hidden;
+  }
+  .float-card{
+    position:absolute;background:#fff;border-radius:20px;padding:14px 18px;display:flex;gap:12px;align-items:center;
+    box-shadow:var(--shadow-pop);animation:floaty 5s ease-in-out infinite;
+  }
+  .float-card .fic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex-shrink:0;}
+  .float-card b{font-family:'Nunito';font-size:14.5px;display:block;line-height:1.25;}
+  .float-card span{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .fc-1{top:34px;left:-38px;}
+  .fc-2{bottom:52px;right:-30px;animation-delay:1.2s;}
+  .fc-3{bottom:-24px;left:56px;animation-delay:2.2s;}
+  @keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
+
+  /* services marquee */
+  .marquee-band{margin-top:64px;background:var(--ink);color:#fff;padding:0;overflow:hidden;}
+  .marquee{display:flex;gap:44px;padding:16px 0;white-space:nowrap;animation:scroll 28s linear infinite;width:max-content;}
+  .marquee span{font-family:'Nunito';font-weight:700;font-size:15px;display:flex;align-items:center;gap:44px;color:#DFF3EE;}
+  .marquee span::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--coral);display:inline-block;}
+  @keyframes scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+  /* ============ KIDS SECTION ============ */
+  .kids{padding:86px 0 76px;position:relative;}
+  .sec-head{max-width:640px;margin-bottom:44px;}
+  .sec-head.center{margin-left:auto;margin-right:auto;text-align:center;}
+  .sec-head h2{font-size:38px;font-weight:900;letter-spacing:-.8px;line-height:1.12;margin:16px 0 14px;}
+  .sec-head p{font-size:17px;color:var(--ink-soft);}
+  .adapt-banner{
+    display:grid;grid-template-columns:1.1fr 2fr;gap:0;align-items:stretch;
+    background:linear-gradient(120deg,var(--coral) 0%,#FF9464 100%);
+    border-radius:var(--radius-xl);overflow:hidden;color:#fff;box-shadow:0 26px 50px -20px rgba(255,122,89,.55);
+    margin-bottom:40px;
+  }
+  .adapt-left{padding:34px 36px;display:flex;flex-direction:column;justify-content:center;gap:10px;}
+  .adapt-left .chip{background:rgba(255,255,255,.2);color:#fff;}
+  .adapt-left h3{font-size:24px;font-weight:900;line-height:1.2;}
+  .adapt-left p{font-size:14.5px;opacity:.92;font-weight:500;}
+  .adapt-steps{display:grid;grid-template-columns:repeat(3,1fr);background:#fff;}
+  .adapt-step{padding:28px 26px;border-left:1px solid #F1EAE2;display:flex;flex-direction:column;gap:8px;position:relative;color:var(--ink);}
+  .adapt-step .num{font-family:'Nunito';font-weight:900;font-size:13px;color:var(--coral);background:var(--coral-soft);width:34px;height:34px;border-radius:11px;display:grid;place-items:center;}
+  .adapt-step b{font-family:'Nunito';font-size:16.5px;}
+  .adapt-step span{font-size:13px;color:var(--ink-soft);font-weight:500;}
+  .kids-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .k-card{
+    background:#fff;border-radius:var(--radius-lg);padding:28px 26px;box-shadow:var(--shadow-card);
+    display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;
+    transition:transform .22s,box-shadow .22s;border:1px solid rgba(31,59,53,.05);
+  }
+  .k-card:hover{transform:translateY(-6px);box-shadow:0 30px 54px -20px rgba(31,59,53,.28);}
+  .k-card .kic{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;}
+  .k-card h3{font-size:19px;font-weight:800;line-height:1.25;}
+  .k-card p{font-size:14px;color:var(--ink-soft);flex-grow:1;}
+  .k-card .k-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px dashed rgba(31,59,53,.14);}
+  .k-price{font-family:'Nunito';font-weight:900;font-size:17px;}
+  .k-price small{display:block;font-family:'Manrope';font-weight:600;font-size:11px;color:var(--ink-soft);letter-spacing:.3px;}
+  .k-link{font-weight:800;font-size:13.5px;color:var(--teal-dark);display:flex;align-items:center;gap:6px;}
+  .k-card.c-teal .kic{background:var(--mint);color:var(--teal-dark);}
+  .k-card.c-coral .kic{background:var(--coral-soft);color:var(--coral);}
+  .k-card.c-sun .kic{background:var(--sun-soft);color:#C98A00;}
+  .k-card.c-lav .kic{background:var(--lav-soft);color:var(--lav);}
+  .k-card .tag{position:absolute;top:18px;right:18px;background:var(--sun);color:#6B4A00;font-size:11px;font-weight:800;padding:5px 12px;border-radius:999px;font-family:'Nunito';}
+
+  .parents-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:40px;}
+  .p-item{display:flex;gap:14px;align-items:flex-start;background:var(--mint);border-radius:var(--radius-md);padding:20px;}
+  .p-item .pic{width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;color:var(--teal-dark);flex-shrink:0;}
+  .p-item b{font-family:'Nunito';font-size:15px;display:block;margin-bottom:3px;}
+  .p-item span{font-size:13px;color:var(--ink-soft);font-weight:500;}
+
+  /* ============ FAMILY SECTION ============ */
+  .family{background:linear-gradient(180deg,var(--cream) 0%,#FFF4E8 100%);padding:80px 0 90px;}
+  .fam-top{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:end;margin-bottom:40px;}
+  .fam-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:64px;}
+  .f-card{
+    background:#fff;border-radius:var(--radius-md);padding:22px 18px;box-shadow:var(--shadow-card);
+    display:flex;flex-direction:column;gap:10px;transition:transform .2s;cursor:pointer;border:1px solid rgba(31,59,53,.05);
+  }
+  .f-card:hover{transform:translateY(-5px);}
+  .f-card .fic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;}
+  .f-card b{font-family:'Nunito';font-size:15px;line-height:1.2;}
+  .f-card span{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .fam-bottom{display:grid;grid-template-columns:1.15fr 1fr;gap:24px;align-items:stretch;}
+  .stats-band{
+    background:var(--ink);border-radius:var(--radius-xl);padding:38px 40px;color:#fff;
+    display:grid;grid-template-columns:repeat(2,1fr);gap:30px 24px;position:relative;overflow:hidden;
+  }
+  .stats-band::before{content:"";position:absolute;width:280px;height:280px;border-radius:50%;background:rgba(14,159,138,.25);filter:blur(60px);top:-90px;right:-70px;}
+  .stat b{font-family:'Nunito';font-weight:900;font-size:42px;letter-spacing:-1px;display:block;line-height:1;}
+  .stat b em{font-style:normal;color:var(--sun);}
+  .stat span{font-size:13.5px;color:#B9CDC8;font-weight:600;display:block;margin-top:7px;max-width:200px;}
+  .why-card{background:#fff;border-radius:var(--radius-xl);padding:34px 36px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:18px;}
+  .why-card h3{font-size:21px;font-weight:900;}
+  .why-item{display:flex;gap:14px;align-items:flex-start;}
+  .why-item .wic{width:38px;height:38px;border-radius:12px;background:var(--mint);color:var(--teal-dark);display:grid;place-items:center;flex-shrink:0;}
+  .why-item b{font-size:15px;font-family:'Nunito';display:block;}
+  .why-item span{font-size:13.5px;color:var(--ink-soft);font-weight:500;}
+
+  /* ============ CTA BAND ============ */
+  .cta-band{padding:0 0 90px;}
+  .cta-inner{
+    background:linear-gradient(120deg,var(--teal-dark) 0%,var(--teal) 70%,#1CB99F 100%);
+    border-radius:36px;padding:56px 60px;color:#fff;position:relative;overflow:hidden;
+    display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:center;
+    box-shadow:0 34px 60px -22px rgba(10,125,110,.6);
+  }
+  .cta-inner::before{content:"";position:absolute;width:340px;height:340px;border-radius:50%;background:rgba(255,255,255,.1);filter:blur(50px);top:-120px;right:-80px;}
+  .cta-inner h2{font-size:36px;font-weight:900;letter-spacing:-.7px;line-height:1.12;margin-bottom:14px;}
+  .cta-inner p{font-size:16px;opacity:.92;max-width:440px;}
+  .cta-form{position:relative;display:flex;flex-direction:column;gap:12px;}
+  .cta-form input{
+    height:56px;border-radius:16px;border:none;padding:0 22px;font-family:'Manrope';font-size:15px;font-weight:600;
+    background:rgba(255,255,255,.97);color:var(--ink);outline:none;
+  }
+  .cta-form input::placeholder{color:#93A5A0;}
+  .cta-form input:focus{box-shadow:0 0 0 3px rgba(255,201,77,.7);}
+  .cta-form .btn{background:var(--sun);color:#5B4200;box-shadow:0 14px 28px -10px rgba(0,0,0,.3);}
+  .cta-form small{font-size:12px;opacity:.8;text-align:center;}
+  .cta-badges{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;}
+  .cta-badge{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;font-family:'Nunito';}
+
+  /* ============ FOOTER MINI ============ */
+  .footer-note{text-align:center;padding:0 0 36px;font-size:13px;color:#9AB0AA;font-weight:600;}
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width:1080px){
+    .hero .wrap{grid-template-columns:1fr;}
+    .hero h1{font-size:42px;}
+    .kids-grid{grid-template-columns:repeat(2,1fr);}
+    .fam-cards{grid-template-columns:repeat(3,1fr);}
+    .fam-bottom{grid-template-columns:1fr;}
+    .fam-top{grid-template-columns:1fr;}
+    .parents-row{grid-template-columns:repeat(2,1fr);}
+    .cta-inner{grid-template-columns:1fr;padding:44px;}
+    .adapt-banner{grid-template-columns:1fr;}
+    .nav-links{display:none;}
+    .fc-1{left:-10px;} .fc-2{right:-10px;}
+  }
+  @media (max-width:640px){
+    .kids-grid{grid-template-columns:1fr;}
+    .fam-cards{grid-template-columns:repeat(2,1fr);}
+    .parents-row{grid-template-columns:1fr;}
+    .adapt-steps{grid-template-columns:1fr;}
+    .adapt-step{border-left:none;border-top:1px solid #F1EAE2;}
+    .hero h1{font-size:33px;}
+    .stats-band{grid-template-columns:1fr;}
+    .topbar-right span:first-child{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+  <div class="wrap">
+    <span>📍 г. Томск, ул. Гоголя, 15 &nbsp;·&nbsp; <b>пн–пт 8:00–20:30, сб 8:30–16:00</b></span>
+    <div class="topbar-right">
+      <span>Лечение детей во сне — <b>есть запись на эту неделю</b></span>
+      <span>+7 (3822) 91-01-01</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<header class="site">
+  <div class="wrap nav">
+    <a class="logo" href="#">
+      <span class="mark">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M12 21c-.5 0-1.4-.6-2.4-1.9-1.6-2-4.1-6-4.6-9.6C4.6 6 6.5 3.5 9.3 3.5c1.2 0 2 .4 2.7 1 .7-.6 1.5-1 2.7-1 2.8 0 4.7 2.5 4.3 6-.5 3.6-3 7.6-4.6 9.6-1 1.3-1.9 1.9-2.4 1.9z" fill="#fff"/>
+          <circle cx="9" cy="9.5" r="1.2" fill="#0E9F8A"/><circle cx="15" cy="9.5" r="1.2" fill="#0E9F8A"/>
+          <path d="M9.5 12.5c.7.8 1.6 1.2 2.5 1.2s1.8-.4 2.5-1.2" stroke="#0E9F8A" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span>УлыбкаFAMILY<small>семейная стоматология</small></span>
+    </a>
+    <nav class="nav-links">
+      <a class="kids" href="#kids">👶 Детям</a>
+      <a href="#family">Взрослым</a>
+      <a href="#">Врачи</a>
+      <a href="#">Цены</a>
+      <a href="#">Отзывы</a>
+      <a href="#">Контакты</a>
+    </nav>
+    <div class="nav-right">
+      <div class="nav-phone">+7 (3822) 91-01-01<small>ежедневно с 8:00</small></div>
+      <button class="btn btn-primary">Записаться</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== SCREEN 1 · HERO ===== -->
+<section class="hero">
+  <div class="hero-bg-blob blob-1"></div>
+  <div class="hero-bg-blob blob-2"></div>
+  <div class="hero-bg-blob blob-3"></div>
+  <div class="wrap">
+    <div class="hero-left">
+      <span class="chip chip-teal"><span class="dot"></span> Семейная стоматология в Томске · с 2011 года</span>
+      <h1>Стоматология, куда <span class="accent-kids">дети идут без слёз</span>,<br>а родители — <span class="accent">с доверием<svg viewBox="0 0 220 14" preserveAspectRatio="none"><path d="M3 10C60 3 160 3 217 9" stroke="#FFC94D" stroke-width="6" stroke-linecap="round" fill="none"/></svg></span></h1>
+      <p class="hero-sub">Лечим всю семью — <b>от первого зубика малыша до имплантации</b>. Начинаем со знакомства и игры, а не со сверла. Мама всегда рядом, а в кабинете — мультики.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary btn-lg">Записать ребёнка 🎈</button>
+        <button class="btn btn-ghost btn-lg">Все услуги для взрослых</button>
+      </div>
+      <div class="hero-trust">
+        <div class="trust-item">
+          <span class="ic" style="background:#FFF1CE;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#EFA400"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg>
+          </span>
+          <div><b>5,0 и 4,8</b><span>рейтинг на Яндекс Картах и 2ГИС</span></div>
+        </div>
+        <div class="trust-item">
+          <span class="ic" style="background:#E3F4EF;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" fill="#0E9F8A"/><circle cx="16.5" cy="9.5" r="2.4" fill="#7ED0C0"/><path d="M3.5 19c.6-3 2.9-4.8 5.5-4.8s4.9 1.8 5.5 4.8" fill="#0E9F8A"/><path d="M15 14.6c2.2.2 4.2 1.8 4.7 4.4" stroke="#7ED0C0" stroke-width="2.4" stroke-linecap="round"/></svg>
+          </span>
+          <div><b>10 000+ пациентов</b><span>доверяют нам каждый год</span></div>
+        </div>
+        <div class="trust-item">
+          <span class="ic" style="background:#FFE3D9;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M20.8 8.6c0 5-8.8 11.4-8.8 11.4S3.2 13.6 3.2 8.6a4.8 4.8 0 0 1 8.8-2.6 4.8 4.8 0 0 1 8.8 2.6z" fill="#FF7A59"/></svg>
+          </span>
+          <div><b>92% возвращаются</b><span>и приводят своих детей</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="scene">
+        <svg viewBox="0 0 560 480" width="100%" style="height:auto;">
+          <!-- sky decor -->
+          <circle cx="494" cy="70" r="32" fill="#FFC94D"/>
+          <circle cx="494" cy="70" r="46" fill="#FFC94D" opacity=".25"/>
+          <g fill="#fff" opacity=".9">
+            <ellipse cx="92" cy="86" rx="44" ry="15"/><ellipse cx="120" cy="74" rx="28" ry="12"/>
+            <ellipse cx="432" cy="162" rx="30" ry="11"/>
+          </g>
+          <ellipse cx="300" cy="290" rx="210" ry="160" fill="#fff" opacity=".12"/>
+          <!-- ground -->
+          <path d="M0 424 Q140 384 280 412 T560 402 V480 H0 Z" fill="#7CCDB9"/>
+          <!-- big tooth -->
+          <g transform="translate(128,108) scale(2.15)">
+            <path d="M50 14 C38 4 16 7 10 26 C5 42 14 52 20 68 C26 84 29 96 38 96 C46 96 45 78 50 78 C55 78 54 96 62 96 C71 96 74 84 80 68 C86 52 95 42 90 26 C84 7 62 4 50 14 Z" fill="#FFFFFF"/>
+            <circle cx="36" cy="42" r="3.4" fill="#1F3B35"/>
+            <circle cx="64" cy="42" r="3.4" fill="#1F3B35"/>
+            <circle cx="37.4" cy="40.6" r="1.1" fill="#fff"/>
+            <circle cx="65.4" cy="40.6" r="1.1" fill="#fff"/>
+            <path d="M40 53 Q50 63 60 53" stroke="#1F3B35" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <circle cx="25" cy="53" r="5.5" fill="#FFB3A0" opacity=".85"/>
+            <circle cx="75" cy="53" r="5.5" fill="#FFB3A0" opacity=".85"/>
+          </g>
+          <!-- baby tooth -->
+          <g transform="translate(378,244)">
+            <path d="M50 14 C38 4 16 7 10 26 C5 42 14 52 20 68 C26 84 29 96 38 96 C46 96 45 78 50 78 C55 78 54 96 62 96 C71 96 74 84 80 68 C86 52 95 42 90 26 C84 7 62 4 50 14 Z" fill="#FFE3A9"/>
+            <circle cx="40" cy="42" r="2.6" fill="#1F3B35"/>
+            <circle cx="60" cy="42" r="2.6" fill="#1F3B35"/>
+            <circle cx="41" cy="41" r=".9" fill="#fff"/>
+            <circle cx="61" cy="41" r=".9" fill="#fff"/>
+            <path d="M43 51 Q50 58 57 51" stroke="#1F3B35" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+            <circle cx="33" cy="51" r="4" fill="#FFC285"/>
+            <circle cx="67" cy="51" r="4" fill="#FFC285"/>
+          </g>
+          <!-- holding hands -->
+          <path d="M303 254 Q342 246 374 266" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" fill="none"/>
+          <path d="M386 276 Q380 272 374 266" stroke="#FFE3A9" stroke-width="12" stroke-linecap="round" fill="none"/>
+          <!-- heart above hands -->
+          <path d="M250 210c0-18 26-18 26 0 0 12-26 26-26 26s-26-14-26-26c0-18 26-18 26 0z" fill="#FF7A59" opacity=".95" transform="translate(164.5,64) scale(.8)"/>
+          <!-- sparkles -->
+          <g fill="#fff" opacity=".9">
+            <path d="M64 210l5 14 14 5-14 5-5 14-5-14-14-5 14-5z"/>
+            <path d="M318 96l4 11 11 4-11 4-4 11-4-11-11-4 11-4z"/>
+            <path d="M502 262l4 11 11 4-11 4-4 11-4-11-11-4 11-4z"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="float-card fc-1">
+        <span class="fic" style="background:#E9E5FD;color:#8B7CF6;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+        </span>
+        <div><b>Лечение во сне</b><span>ребёнок спит — врач лечит</span></div>
+      </div>
+      <div class="float-card fc-2">
+        <span class="fic" style="background:#FFF1CE;color:#C98A00;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z" fill="#fff"/></svg>
+        </span>
+        <div><b>Мультики на потолке</b><span>во время всего приёма</span></div>
+      </div>
+      <div class="float-card fc-3">
+        <span class="fic" style="background:#E3F4EF;color:#0A7D6E;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <div><b>Мама рядом</b><span>родители присутствуют на приёме</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- marquee -->
+  <div class="marquee-band">
+    <div class="marquee">
+      <span>Детская стоматология</span><span>Лечение во сне</span><span>Имплантация</span><span>Ортодонтия</span><span>Профессиональная гигиена</span><span>Протезирование</span><span>Лечение кариеса без сверла</span><span>Диагностика на КТ</span>
+      <span>Детская стоматология</span><span>Лечение во сне</span><span>Имплантация</span><span>Ортодонтия</span><span>Профессиональная гигиена</span><span>Протезирование</span><span>Лечение кариеса без сверла</span><span>Диагностика на КТ</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SCREEN 2 · KIDS ===== -->
+<section class="kids" id="kids">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="chip chip-coral"><span class="dot"></span> Детская стоматология</span>
+      <h2>Первый визит — знакомство, а не лечение</h2>
+      <p>Мы работаем по методике адаптации: ребёнок успевает привыкнуть к клинике и врачу <b>до</b> первого лечения. Поэтому дальше — без страха и слёз.</p>
+    </div>
+
+    <div class="adapt-banner">
+      <div class="adapt-left">
+        <span class="chip"><span class="dot"></span> Программа адаптации</span>
+        <h3>3 шага до ребёнка, который сам открывает рот</h3>
+        <p>Бесплатно для всех маленьких пациентов клиники</p>
+      </div>
+      <div class="adapt-steps">
+        <div class="adapt-step">
+          <span class="num">1</span>
+          <b>Экскурсия-игра</b>
+          <span>Смотрим кабинет, «считаем зубки» мишке, знакомимся с креслом</span>
+        </div>
+        <div class="adapt-step">
+          <span class="num">2</span>
+          <b>Пробный приём</b>
+          <span>Смотрим ротик, чистим зубки щёточкой, дарим наклейку</span>
+        </div>
+        <div class="adapt-step">
+          <span class="num">3</span>
+          <b>Лечение</b>
+          <span>Уже спокойный ребёнок лечим зубки — под мультик или во сне</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kids-grid">
+      <div class="k-card c-coral">
+        <span class="tag">Хит</span>
+        <span class="kic">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" fill="currentColor"/><circle cx="16" cy="8" r="1.1" fill="#FFE3D9"/></svg>
+        </span>
+        <h3>Лечение во сне</h3>
+        <p>Седация или наркоз с отдельным анестезиологом. Ребёнок закрывает глаза — просыпается со здоровыми зубами. Всё лечение за один визит.</p>
+        <div class="k-bottom">
+          <span class="k-price"><small>СТОИМОСТЬ</small>от 12 000 ₽</span>
+          <span class="k-link">Подробнее →</span>
+        </div>
+      </div>
+
+      <div class="k-card c-teal">
+        <span class="kic">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 3a6 6 0 0 0-6 6c0 2.5 1.2 4 2 5.5.5 1 .7 2 .8 3.5h6.4c.1-1.5.3-2.5.8-3.5.8-1.5 2-3 2-5.5a6 6 0 0 0-6-6z" stroke="currentColor" stroke-width="2"/><path d="M9.8 21.5h4.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <h3>Лечение кариеса без сверла</h3>
+        <p>Технология ICON и воздушно-абразивная обработка: без бормашины, без боли и часто без анестезии. На ранних стадиях — за 20 минут.</p>
+        <div class="k-bottom">
+          <span class="k-price"><small>СТОИМОСТЬ</small>от 3 500 ₽</span>
+          <span class="k-link">Подробнее →</span>
+        </div>
+      </div>
+
+      <div class="k-card c-sun">
+        <span class="kic">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" fill="currentColor"/></svg>
+        </span>
+        <h3>Профилактика и фторирование</h3>
+        <p>Герметизация фиссур, глубокое фторирование, обучение чистке в игровой форме. Лучше предотвратить, чем лечить.</p>
+        <div class="k-bottom">
+          <span class="k-price"><small>СТОИМОСТЬ</small>от 1 800 ₽</span>
+          <span class="k-link">Подробнее →</span>
+        </div>
+      </div>
+
+      <div class="k-card c-lav">
+        <span class="kic">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="4" y="2.5" width="16" height="19" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 7h8M8 11h8M8 15h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <h3>Детская ортодонтия</h3>
+        <p>Пластинки, трейнеры и элайнеры. Консультация ортодонта — уже с 4–5 лет, пока челюсть растёт и исправлять проще всего.</p>
+        <div class="k-bottom">
+          <span class="k-price"><small>СТОИМОСТЬ</small>от 5 000 ₽</span>
+          <span class="k-link">Подробнее →</span>
+        </div>
+      </div>
+
+      <div class="k-card c-teal">
+        <span class="kic">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <h3>Срочная помощь</h3>
+        <p>Острая боль, скол после падения, воспаление — принимаем внепланово в день обращения. Дежурный детский врач есть каждый день.</p>
+        <div class="k-bottom">
+          <span class="k-price"><small>СТОИМОСТЬ</small>от 1 500 ₽</span>
+          <span class="k-link">Подробнее →</span>
+        </div>
+      </div>
+
+      <div class="k-card c-coral">
+        <span class="kic">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M8 3v9a4 4 0 0 0 8 0V3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 3h8M12 16v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <h3>Лечение под «холодным» светом</h3>
+        <p>Ребёнок не видит привычных «страшных» инструментов — работаем в игровой подаче. Рассказываем и показываем всё на мишке, а не на нём.</p>
+        <div class="k-bottom">
+          <span class="k-price"><small>СТОИМОСТЬ</small>входит в приём</span>
+          <span class="k-link">Подробнее →</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="parents-row">
+      <div class="p-item">
+        <span class="pic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <div><b>Родители в кабинете</b><span>присутствуйте на приёме столько, сколько нужно</span></div>
+      </div>
+      <div class="p-item">
+        <span class="pic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.1 4.6 5 .6-3.7 3.4.9 4.9-4.3-2.4-4.3 2.4.9-4.9L4.9 8.2l5-.6L12 3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+        <div><b>Приз после визита</b><span>наклейки, сертификат «храброго пациента» и фото</span></div>
+      </div>
+      <div class="p-item">
+        <span class="pic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C7 17 3 13.5 3 9.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 9 2.5c0 4-4 7.5-9 11.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+        <div><b>Без боли — обещаем</b><span>гель-анестезия перед уколом, ребёнок не почувствует</span></div>
+      </div>
+      <div class="p-item">
+        <span class="pic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="2"/><path d="M3 9h18M8 2.5V6M16 2.5V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 14h2M13.5 14h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <div><b>Напоминания о визитах</b><span>раз в 3 месяца — бесплатный профилактический осмотр</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SCREEN 3 · FAMILY ===== -->
+<section class="family" id="family">
+  <div class="wrap">
+    <div class="fam-top">
+      <div class="sec-head" style="margin-bottom:0;">
+        <span class="chip chip-teal"><span class="dot"></span> Вся семья — в одной клинике</span>
+        <h2>Малышам — игру,<br>взрослым — цифровую точность</h2>
+        <p>Родителям не нужно искать вторую клинику: диагностика, лечение и протезирование — здесь же, по записи в один день.</p>
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-teal btn-lg">Записаться всей семьёй 👨‍👩‍👧‍👦</button>
+      </div>
+    </div>
+
+    <div class="fam-cards">
+      <div class="f-card"><span class="fic" style="background:#E3F4EF;color:#0A7D6E;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3a6 6 0 0 0-6 6c0 2.5 1.2 4 2 5.5.5 1 .7 2 .8 3.5h6.4c.1-1.5.3-2.5.8-3.5.8-1.5 2-3 2-5.5a6 6 0 0 0-6-6z" stroke="currentColor" stroke-width="2"/></svg></span><b>Терапия</b><span>кариес, каналы</span></div>
+      <div class="f-card"><span class="fic" style="background:#FFE3D9;color:#FF7A59;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 4h4l1.5 5L9 11a12 12 0 0 0 4 4l2-2.5L20 14v4a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span><b>Имплантация</b><span>под ключ</span></div>
+      <div class="f-card"><span class="fic" style="background:#FFF1CE;color:#C98A00;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 14a3.5 3.5 0 0 0 6 2 3.5 3.5 0 0 0 6 0 3.5 3.5 0 0 0 6-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><b>Протезирование</b><span>керамика Emax</span></div>
+      <div class="f-card"><span class="fic" style="background:#E9E5FD;color:#8B7CF6;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="8" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M8 3v4M16 3v4M8 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><b>Ортодонтия</b><span>элайнеры, брекеты</span></div>
+      <div class="f-card"><span class="fic" style="background:#D8F1E9;color:#0A7D6E;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 21s-8-5.5-8-11a5 5 0 0 1 8-3 5 5 0 0 1 8 3c0 5.5-8 11-8 11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span><b>Гигиена</b><span>Air Flow, полировка</span></div>
+      <div class="f-card"><span class="fic" style="background:#FFE3D9;color:#D9481F;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><b>Диагностика</b><span>КТ за 20 минут</span></div>
+    </div>
+
+    <div class="fam-bottom">
+      <div class="stats-band">
+        <div class="stat"><b>10 000<em>+</em></b><span>пациентов лечатся у нас каждый год</span></div>
+        <div class="stat"><b>92<em>%</em></b><span>становятся постоянными клиентами</span></div>
+        <div class="stat"><b>14 <em>лет</em></b><span>средний стаж врача в клинике</span></div>
+        <div class="stat"><b>1 <em>день</em></b><span>от диагностики до начала лечения</span></div>
+      </div>
+      <div class="why-card">
+        <h3>Почему семьи выбирают нас</h3>
+        <div class="why-item">
+          <span class="wic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div><b>Один врач для всей семьи</b><span>ведём семьи годами — знаем историю зубов каждого</span></div>
+        </div>
+        <div class="why-item">
+          <span class="wic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div><b>Цифровая диагностика</b><span>КТ, сканер и моделирование улыбки вместо «гаданий»</span></div>
+        </div>
+        <div class="why-item">
+          <span class="wic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div><b>Гарантия на работы</b><span>фиксируем в договоре, напоминаем о профилактике</span></div>
+        </div>
+        <div class="why-item">
+          <span class="wic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4 10-10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div><b>Лечение в рассрочку</b><span>0% переплаты — имплантация и ортодонтия доступны сразу</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="cta-band">
+  <div class="wrap">
+    <div class="cta-inner">
+      <div>
+        <h2>Запишите ребёнка на бесплатное знакомство</h2>
+        <p>30 минут игры с врачом и экскурсии по клинике. Покажем кабинет, ответим на вопросы — и ребёнок уйдёт с наклейкой, а не со слезами.</p>
+        <div class="cta-badges">
+          <span class="cta-badge">⭐ 5,0 на Яндекс Картах</span>
+          <span class="cta-badge">📍 Гоголя, 15 · Томск</span>
+          <span class="cta-badge">🕐 Ответим за 5 минут</span>
+        </div>
+      </div>
+      <form class="cta-form" onsubmit="return false;">
+        <input type="text" placeholder="Ваше имя">
+        <input type="tel" placeholder="Ваш телефон">
+        <button class="btn btn-lg">Записать ребёнка 🎈</button>
+        <small>Нажимая кнопку, вы соглашаетесь с политикой обработки персональных данных</small>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div class="footer-note">УлыбкаFAMILY · концепт-макет первой страницы · семейная стоматология</div>
+
+</body>
+</html>

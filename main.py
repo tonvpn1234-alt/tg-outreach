@@ -38,6 +38,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import quote, unquote
 
+import requests as _requests
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 from telethon import TelegramClient, errors, events
@@ -106,6 +107,15 @@ MAX_DELAY = 90    # максимальная пауза между сообще�
 BATCH_SIZE = 50   # размер пачки: собрали 50 -> сводка в «Избранное» -> пишем каждому
 REST_TIME = 900   # перерыв между пачками (сек)
 IGNORE_HOURS = 48  # нет ответа дольше этого — получатель считается «проигнорил»
+
+# Аудит сайтов и AI-персонализация
+ENABLE_SITE_AUDIT = os.getenv("ENABLE_SITE_AUDIT", "1") == "1"  # анализ сайтов клиентов
+SITE_AUDIT_TIMEOUT = int(os.getenv("SITE_AUDIT_TIMEOUT", "12"))  # сек на загрузку сайта
+AI_API_KEY = (os.getenv("AI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+              or os.getenv("OPENAI_API_KEY") or "")   # если ключ не задан — шаблоны с аудитом
+AI_BASE_URL = os.getenv("AI_BASE_URL", "https://api.openai.com/v1")  # OpenRouter/DeepSeek совместимы
+AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
+AI_CACHE_FILE = os.path.join(DATA_DIR, "ai_cache.json")
 
 # Конструктор уникальных сообщений: каждому получателю — свой текст.
 # Сообщение собирается из трёх случайных частей: приветствие × тело (по нише
@@ -464,6 +474,110 @@ async def _get_html(page, url, tries=3):
     return None
 
 
+def _load_ai_cache():
+    if not os.path.exists(AI_CACHE_FILE):
+        return {}
+    with open(AI_CACHE_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _save_ai_cache(cache):
+    with open(AI_CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, indent=1)
+
+
+def audit_site(url, timeout=None):
+    """Быстрый аудит главной страницы сайта. Возвращает (домен, список замечаний).
+
+    Замечания — конкретные и проверяемые: мобильная версия, скорость, HTTPS,
+    онлайн-запись, SEO. Если сайт не открылся — возвращаем пустой список
+    (не утверждаем, что сайт плохой, вдруг не отвечел наш запрос).
+    """
+    timeout = timeout or SITE_AUDIT_TIMEOUT
+    domain = re.sub(r"^https?://", "", url).split("/")[0].lower().replace("www.", "", 1)
+    try:
+        t0 = time.time()
+        r = _requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                                   "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                     "Accept-Language": "ru,en;q=0.8"},
+            timeout=timeout, allow_redirects=True)
+    except _requests.exceptions.SSLError:
+        return domain, ["с SSL-сертификатом не всё в порядке — браузеры показывают «небезопасно»"]
+    except Exception:
+        return domain, []
+
+    load_s = time.time() - t0
+    html = r.text or ""
+    if r.status_code != 200:
+        # 403/5xx — возможно, антибот или временные проблемы: судить по такому нельзя
+        return domain, []
+    issues = []
+    if "viewport" not in html.lower():
+        issues.append("нет мобильной адаптации — больше половины клиентов заходят с телефона")
+    if load_s > 2.5:
+        issues.append(f"страница открывается медленно (~{load_s:.0f} сек) — посетители уходят, не дождавшись")
+    if not re.search(r"<form\b", html, re.I) and not re.search(r"запис|заказ|брон|заявк", html, re.I):
+        issues.append("нет онлайн-записи и формы заявки — клиенты уходят, не оставив контактов")
+    if r.url.startswith("http://"):
+        issues.append("сайт без HTTPS — браузеры помечают его «не защищено»")
+    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
+    if not m or len(m.group(1).strip()) < 10:
+        issues.append("слабый заголовок страницы — поисковики показывают вас хуже конкурентов")
+    elif not re.search(r"<meta[^>]+name=[\"']description[\"']", html, re.I):
+        issues.append("нет description — в Яндексе и Google у вас пустой сниппет")
+    if len(html) > 400_000:
+        issues.append(f"страница тяжёлая ({len(html) // 1024} КБ HTML) — на телефоне грузится неохотно")
+    return domain, issues[:3]
+
+
+def _ai_request_sync(prompt):
+    r = _requests.post(
+        f"{AI_BASE_URL}/chat/completions",
+        headers={"Authorization": f"Bearer {AI_API_KEY}", "Content-Type": "application/json"},
+        json={"model": AI_MODEL,
+              "messages": [{"role": "user", "content": prompt}],
+              "temperature": 0.9, "max_tokens": 250},
+        timeout=45)
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"].strip()
+
+
+async def ai_rewrite(item, fallback_msg):
+    """Переписывает сообщение нейросетью под конкретные замечания на сайте клиента.
+
+    Без AI_API_KEY (или при ошибке API) возвращает шаблонный текст с аудитом.
+    Ответы кэшируются по домену, чтобы не дёргать API повторно.
+    """
+    if not AI_API_KEY or not item.get("site_issues"):
+        return fallback_msg
+    cache = _load_ai_cache()
+    key = item.get("domain") or item.get("phone") or ""
+    if key and key in cache:
+        return cache[key]
+    nl = chr(10)
+    prompt = (
+        f"Ты — веб-разработчик, пишешь короткое личное сообщение владельцу "
+        f"«{item.get('name')}» (сфера: {item.get('niche')}). "
+        f"Только что посмотрел его сайт {item.get('domain')} и нашёл проблемы:" + nl
+        + nl.join("- " + i for i in item["site_issues"]) + nl
+        + "Напиши по-русски живое сообщение: что заметил, что конкретно можно улучшить "
+        "и какой от этого эффект. 2-4 предложения, без канцелярита, без обещаний "
+        "сделать бесплатно и без слова «Привет» — начни сразу с сути, заканчивай лёгким вопросом."
+    )
+    try:
+        text = await asyncio.to_thread(_ai_request_sync, prompt)
+        msg = f"{random.choice(GREETINGS)} {text}"
+        if key:
+            cache[key] = msg
+            _save_ai_cache(cache)
+        return msg
+    except Exception as e:
+        print(f"  [!] AI-персонализация не удалась ({str(e)[:80]}) — беру шаблон с аудитом")
+        return fallback_msg
+
+
 async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
                         require_no_website=False, headless=False, archive_cb=None,
                         target_leads=None):
@@ -572,6 +686,15 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
                     await asyncio.sleep(random.uniform(1.0, 2.0))
                     continue
 
+                domain, site_issues = None, None
+                if has_site and ENABLE_SITE_AUDIT:
+                    try:
+                        domain, site_issues = await asyncio.to_thread(audit_site, sites[0])
+                        if site_issues:
+                            print(f"      аудит {domain}: " + "; ".join(site_issues[:2]))
+                    except Exception as e:
+                        print(f"      аудит {sites[0]} не удался: {str(e)[:60]}")
+
                 lead = {
                     "phone": new_candidates[0],
                     "firm_id": pid,
@@ -579,6 +702,8 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
                     "tg_phone": tg_phone,
                     "tg_username": tgs[0] if tgs else None,
                     "has_site": has_site,
+                    "domain": domain,
+                    "site_issues": site_issues,
                     "name": name,
                     "niche": niche,
                     "address": address,
@@ -648,6 +773,15 @@ def generate_message(lead, custom_text=None):
     """
     if custom_text:
         return custom_text.replace("{name}", lead.get("name") or "")
+
+    # есть конкретные замечания по сайту — пишем персонально о них
+    if lead.get("site_issues"):
+        domain = lead.get("domain") or "вашего сайта"
+        bullets = chr(10).join("— " + i for i in lead["site_issues"][:3])
+        return (f"{random.choice(GREETINGS)} Зашёл на ваш сайт {domain} и заметил пару моментов:"
+                f"{chr(10)}{bullets}{chr(10)}"
+                "Занимаюсь сайтами для вашей сферы — могу показать, как это исправить. "
+                + random.choice(CLOSINGS))
 
     niche = (lead.get("niche") or "").lower()
     variant = "has_site" if lead.get("has_site") else "no_site"
@@ -1096,6 +1230,8 @@ async def send_all(leads, limit=None, custom_text=None):
 
         # 3) Пишем человеку: у каждого получателя свой случайный таймер
         message = generate_message(item, custom_text)
+        if not custom_text:
+            message = await ai_rewrite(item, message)  # AI-версия, если задан AI_API_KEY
         label = f"{item.get('name')} ({item.get('niche')})"
         tg_note = f" | tg: @{item['tg_username']}" if item.get("tg_username") else ""
         print(f"\n[📞] {label} | тел: {item.get('phone')}{tg_note}")

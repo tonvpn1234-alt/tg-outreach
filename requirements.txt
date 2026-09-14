@@ -1,3 +1,4 @@
 telethon
 python-dotenv
 playwright==1.62.0
+requests
