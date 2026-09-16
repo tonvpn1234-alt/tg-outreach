@@ -1333,6 +1333,24 @@ def ensure_session_or_exit():
         sys.exit(1)
 
 
+async def collect_with_retry(args, city, niches, archive_cb=None):
+    """Сбор лидов; если 0 новых (антибот у 2ГИС) — пауза 3 мин и повтор один раз."""
+    before = len(load_leads())
+    await collect_leads(city, niches, args.max_pages, args.max_firms,
+                        MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
+                        archive_cb=archive_cb, target_leads=args.target_leads)
+    after = len(load_leads())
+    if after > before:
+        print(f"[+] Новых лидов за проход: {after - before}")
+        return
+    print("[!] Новых лидов 0 — похоже, антибот. Жду 3 минуты и пробую ещё раз...")
+    await asyncio.sleep(180)
+    await collect_leads(city, niches, args.max_pages, args.max_firms,
+                        MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
+                        archive_cb=archive_cb, target_leads=args.target_leads)
+    print(f"[+] Новых лидов после повтора: {len(load_leads()) - before}")
+
+
 async def async_main(args):
     global tg_client
 
@@ -1384,9 +1402,8 @@ async def async_main(args):
 
     if args.collect_only:
         niches = [n.strip() for n in args.niches.split(",")] if args.niches else list(SEARCH_QUERIES)
-        leads = await collect_leads(city, niches, args.max_pages, args.max_firms,
-                                    MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
-                                    target_leads=args.target_leads)
+        await collect_with_retry(args, city, niches)
+        leads = load_leads()
         print(f"\n[✅] Сбор завершён. Всего лидов: {len(leads)} (сохранены в {LEADS_FILE})")
 
         # Архивируем ссылки на лидов в «Избранное»
@@ -1444,10 +1461,8 @@ async def async_main(args):
         leads = load_leads()
         if not args.send_only:
             niches = [n.strip() for n in args.niches.split(",")] if args.niches else list(SEARCH_QUERIES)
-            await collect_leads(city, niches, args.max_pages, args.max_firms,
-                                MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
-                                archive_cb=lambda lead: archive_to_saved(tg_client, lead),
-                                target_leads=args.target_leads)
+            await collect_with_retry(args, city, niches,
+                                     archive_cb=lambda lead: archive_to_saved(tg_client, lead))
             leads = load_leads()
 
         if not leads:
