@@ -35,7 +35,7 @@ jobs:
           PHONE_NUMBER: ${{ secrets.PHONE_NUMBER }}
           SESSION_STRING: ${{ secrets.SESSION_STRING }}
         # xvfb: headful-браузер без монитора (2ГИС капчит headless)
-        run: xvfb-run -a python main.py --rotate-cities --limit 50 --target-leads 50 --max-firms 60 --max-pages 5
+        run: xvfb-run -a python main.py --rotate-cities --limit 50 --target-leads 20 --max-firms 30 --max-pages 4
 
       - name: Save state back to repo
         run: |

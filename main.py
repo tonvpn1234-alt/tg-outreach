@@ -299,8 +299,8 @@ ROTATE_CITIES = [
 CITY_CURSOR_FILE = os.path.join(DATA_DIR, "city_cursor.txt")
 
 
-def next_rotate_city():
-    """Берёт следующий город из списка ротации и запоминает позицию."""
+def peek_rotate_city():
+    """Текущий город ротации (курсор не двигаем до успешного сбора)."""
     idx = 0
     if os.path.exists(CITY_CURSOR_FILE):
         try:
@@ -308,10 +308,20 @@ def next_rotate_city():
                 idx = int(f.read().strip() or 0)
         except (ValueError, OSError):
             idx = 0
-    city = ROTATE_CITIES[idx % len(ROTATE_CITIES)]
+    return ROTATE_CITIES[idx % len(ROTATE_CITIES)]
+
+
+def advance_rotate_city():
+    """Сдвигает курсор к следующему городу (вызывается после успешного сбора)."""
+    idx = 0
+    if os.path.exists(CITY_CURSOR_FILE):
+        try:
+            with open(CITY_CURSOR_FILE, "r", encoding="utf-8") as f:
+                idx = int(f.read().strip() or 0)
+        except (ValueError, OSError):
+            idx = 0
     with open(CITY_CURSOR_FILE, "w", encoding="utf-8") as f:
         f.write(str((idx + 1) % len(ROTATE_CITIES)))
-    return city
 
 tg_client = None  # создаётся в main() при необходимости
 
@@ -444,34 +454,33 @@ def extract_contacts(profile):
 # Сбор лидов из 2ГИС
 # ---------------------------------------------------------------------------
 
-async def _get_html(page, url, tries=3):
-    """Открывает URL и возвращает HTML, попутно обходя заглушки 2ГИС."""
-    for attempt in range(1, tries + 1):
+async def _get_html(page, url):
+    """Открывает URL, обходит заглушку обновления браузера.
+
+    Возвращает HTML, 'CAPTCHA' (антибот) или None (не открылось).
+    """
+    try:
+        await page.goto(url, timeout=60000, wait_until="domcontentloaded")
+    except Exception as e:
+        print(f"  [!] Не удалось открыть страницу: {str(e)[:70]}")
+        return None
+    await page.wait_for_timeout(2000)
+
+    # Заглушка "2ГИС советует обновить браузер" — жмём кнопку пропуска
+    for _ in range(2):
         try:
-            await page.goto(url, timeout=60000, wait_until="domcontentloaded")
-        except Exception as e:
-            print(f"  [!] Не удалось открыть страницу (попытка {attempt}/{tries}): {e}")
-            await asyncio.sleep(5)
-            continue
-        await page.wait_for_timeout(2000)
+            btn = page.get_by_text("Пропустить обновление браузера и перейти в 2ГИС")
+            await btn.click(timeout=3000)
+            await page.wait_for_timeout(3000)
+        except Exception:
+            break
 
-        # Заглушка "2ГИС советует обновить браузер" — жмём кнопку пропуска
-        for _ in range(2):
-            try:
-                btn = page.get_by_text("Пропустить обновление браузера и перейти в 2ГИС")
-                await btn.click(timeout=3000)
-                await page.wait_for_timeout(3000)
-            except Exception:
-                break
-
-        html = await page.content()
-        low = html.lower()
-        if "доступ ограничен" in low or "подтвердите, что запросы" in low:
-            print(f"  [!] 2ГИС показывает антибот-проверку. Жду 30 сек (попытка {attempt}/{tries})...")
-            await asyncio.sleep(30)
-            continue
-        return html
-    return None
+    html = await page.content()
+    low = html.lower()
+    if ("2gis captcha" in low or "доступ ограничен" in low
+            or "подтвердите, что запросы" in low):
+        return "CAPTCHA"
+    return html
 
 
 def _load_ai_cache():
@@ -599,23 +608,48 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=headless)
-        context = await browser.new_context(
-            viewport={"width": 1366, "height": 850},
-            locale="ru-RU",
-            timezone_id="Europe/Moscow",
-        )
-        # картинки/шрифты не нужны — только HTML: так быстрее и меньше похоже на парсинг
-        async def _block(route):
-            if route.request.resource_type in ("image", "font", "media"):
-                await route.abort()
-            else:
-                await route.continue_()
-        await context.route("**/*", _block)
+        state = {"ctx": None}
 
-        page = await context.new_page()
+        async def fresh_page():
+            """Новый контекст (новые куки/фингерпринт) — сбрасывает капча-сессию."""
+            if state["ctx"]:
+                try:
+                    await state["ctx"].close()
+                except Exception:
+                    pass
+            ctx = await browser.new_context(
+                viewport={"width": 1366, "height": 850},
+                locale="ru-RU",
+                timezone_id="Europe/Moscow",
+            )
+
+            # картинки/шрифты не нужны — только HTML: быстрее и меньше похоже на парсинг
+            async def _block(route):
+                if route.request.resource_type in ("image", "font", "media"):
+                    await route.abort()
+                else:
+                    await route.continue_()
+            await ctx.route("**/*", _block)
+            state["ctx"] = ctx
+            return await ctx.new_page()
+
+        async def load(url, attempts=3):
+            """Грузит страницу; при капче меняет контекст и пробует снова."""
+            html = None
+            for attempt in range(1, attempts + 1):
+                page = await fresh_page()
+                html = await _get_html(page, url)
+                if html != "CAPTCHA":
+                    return html
+                if attempt < attempts:
+                    wait = random.uniform(45, 100)
+                    print(f"  [!] 2ГИС показывает капчу (попытка {attempt}/{attempts}) — "
+                          f"меняю контекст браузера, пауза {wait:.0f} сек")
+                    await asyncio.sleep(wait)
+            return None
 
         # Прогрев: главная города, чтобы пройти заглушку/куки один раз
-        await _get_html(page, f"https://2gis.ru/{slug}")
+        await load(f"https://2gis.ru/{slug}", attempts=2)
 
         for niche in niches:
             if stop_collection:
@@ -630,7 +664,7 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
                 search_url = f"https://2gis.ru/{slug}/search/{quote(niche)}"
                 if page_num > 1:
                     search_url += f"?page={page_num}"
-                html = await _get_html(page, search_url)
+                html = await load(search_url, attempts=4)
                 profiles = extract_profiles(html) if html else {}
                 new_ids = [pid for pid in profiles
                            if pid not in seen_firm_ids and not profiles[pid].get("is_promoted")]
@@ -652,7 +686,7 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
             for pid in firm_ids[:max_firms]:
                 if stop_collection:
                     break
-                html = await _get_html(page, f"https://2gis.ru/firm/{pid}")
+                html = await load(f"https://2gis.ru/firm/{pid}", attempts=2)
                 profiles = extract_profiles(html) if html else {}
                 prof = profiles.get(pid) or next(
                     (d for d in profiles.values() if d.get("contact_groups")), None)
@@ -662,6 +696,15 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
 
                 name = (prof.get("name") or "").strip()
                 address = (prof.get("address_name") or "").strip()
+
+                # защита от подмены города: если антибот подсунул другой регион —
+                # такие фирмы пропускаем (иначе напишем не тем людям)
+                adm = json.dumps(prof.get("adm_div") or [], ensure_ascii=False).lower()
+                if city and city.lower() not in adm:
+                    print(f"  [-] {name}: не тот город (ожидали {city}) — пропущен")
+                    await asyncio.sleep(random.uniform(1.0, 2.0))
+                    continue
+
                 phones, sites, tgs, tg_phone = extract_contacts(prof)
                 has_site = bool(sites)
 
@@ -1334,7 +1377,10 @@ def ensure_session_or_exit():
 
 
 async def collect_with_retry(args, city, niches, archive_cb=None):
-    """Сбор лидов; если 0 новых (антибот у 2ГИС) — пауза 3 мин и повтор один раз."""
+    """Сбор лидов; если 0 новых (антибот у 2ГИС) — пауза 3 мин и повтор один раз.
+
+    Возвращает (было, стало) — по разнице решаем, собрался ли город.
+    """
     before = len(load_leads())
     await collect_leads(city, niches, args.max_pages, args.max_firms,
                         MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
@@ -1342,13 +1388,15 @@ async def collect_with_retry(args, city, niches, archive_cb=None):
     after = len(load_leads())
     if after > before:
         print(f"[+] Новых лидов за проход: {after - before}")
-        return
+        return before, after
     print("[!] Новых лидов 0 — похоже, антибот. Жду 3 минуты и пробую ещё раз...")
     await asyncio.sleep(180)
     await collect_leads(city, niches, args.max_pages, args.max_firms,
                         MOBILE_ONLY, REQUIRE_NO_WEBSITE, args.headless,
                         archive_cb=archive_cb, target_leads=args.target_leads)
-    print(f"[+] Новых лидов после повтора: {len(load_leads()) - before}")
+    after = len(load_leads())
+    print(f"[+] Новых лидов после повтора: {after - before}")
+    return before, after
 
 
 async def async_main(args):
@@ -1356,9 +1404,8 @@ async def async_main(args):
 
     # Город для этого запуска: ротация по всей РФ или фиксированный из конфига
     if args.rotate_cities:
-        city = next_rotate_city()
-        print(f"[🌍] Ротация городов: следующий — «{city}» "
-              f"(позиция в {CITY_CURSOR_FILE})")
+        city = peek_rotate_city()
+        print(f"[🌍] Ротация городов: пробую «{city}» (курсор в {CITY_CURSOR_FILE})")
     else:
         city = args.city
 
@@ -1402,7 +1449,9 @@ async def async_main(args):
 
     if args.collect_only:
         niches = [n.strip() for n in args.niches.split(",")] if args.niches else list(SEARCH_QUERIES)
-        await collect_with_retry(args, city, niches)
+        before, after = await collect_with_retry(args, city, niches)
+        if args.rotate_cities and after > before:
+            advance_rotate_city()
         leads = load_leads()
         print(f"\n[✅] Сбор завершён. Всего лидов: {len(leads)} (сохранены в {LEADS_FILE})")
 
@@ -1461,8 +1510,10 @@ async def async_main(args):
         leads = load_leads()
         if not args.send_only:
             niches = [n.strip() for n in args.niches.split(",")] if args.niches else list(SEARCH_QUERIES)
-            await collect_with_retry(args, city, niches,
+            before, after = await collect_with_retry(args, city, niches,
                                      archive_cb=lambda lead: archive_to_saved(tg_client, lead))
+            if args.rotate_cities and after > before:
+                advance_rotate_city()
             leads = load_leads()
 
         if not leads:
