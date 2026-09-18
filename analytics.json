@@ -2786,5 +2786,41 @@
   "category": null,
   "reply_text": null,
   "replied_at": null
+ },
+ "7692444084": {
+  "phone": "+79202663056",
+  "user_id": 7692444084,
+  "access_hash": -7028940106587366003,
+  "name": "Метро, барбершоп",
+  "niche": "барбершопы",
+  "sent_at": "2026-09-18 21:32",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "5217018881": {
+  "phone": "+79678680101",
+  "user_id": 5217018881,
+  "access_hash": -2874249022889098117,
+  "name": "Престиж, стоматология",
+  "niche": "стоматологии",
+  "sent_at": "2026-09-18 21:33",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
+ },
+ "912490410": {
+  "phone": "+79678677557",
+  "user_id": 912490410,
+  "access_hash": -4428021408359459241,
+  "name": "Астория, салон красоты",
+  "niche": "салоны красоты",
+  "sent_at": "2026-09-18 21:35",
+  "status": "sent",
+  "category": null,
+  "reply_text": null,
+  "replied_at": null
  }
 }
