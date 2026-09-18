@@ -379,6 +379,9 @@ class NotInTelegram(Exception):
     """Номер не найден в Telegram (не зарегистрирован / скрыт)."""
 
 
+CAPTCHA_HIT = {"v": False}  # 2ГИС показывал капчу в этом запуске (для автоперезапуска)
+
+
 def make_client():
     """Клиент Telegram: из SESSION_STRING (облако) или из файла сессии."""
     if not API_ID or not API_HASH:
@@ -688,6 +691,8 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
             for attempt in range(1, attempts + 1):
                 page = await fresh_page()
                 html = await _get_html(page, url)
+                if html == "CAPTCHA":
+                    CAPTCHA_HIT["v"] = True
                 if html != "CAPTCHA":
                     return html
                 if attempt < attempts:
@@ -1564,6 +1569,10 @@ async def async_main(args):
             if args.rotate_cities and after > before:
                 advance_rotate_city()
             leads = load_leads()
+            if CAPTCHA_HIT["v"] and after == before:
+                print("[🛑] Сбор заблокирован капчей в обоих проходах — "
+                      "завершаю с ошибкой, чтобы GitHub Actions перезапустил цикл.")
+                sys.exit(2)
 
         if not leads:
             print("[!] Лидов нет — сначала выполните сбор (без --send-only).")
