@@ -263,24 +263,73 @@ DEFAULT_TEMPLATES = {
     ],
 }
 
-# Известные слаги городов 2ГИС
+# Латинские слаги городов 2ГИС (кириллические пути у 2ГИС больше не работают
+# для части городов — обязательно используем транслит)
 CITY_SLUGS = {
-    "санкт-петербург": "spb",
     "москва": "moscow",
+    "санкт-петербург": "spb",
     "новосибирск": "novosibirsk",
     "екатеринбург": "ekaterinburg",
     "казань": "kazan",
     "нижний новгород": "nnov",
-    "краснодар": "krasnodar",
+    "челябинск": "chelyabinsk",
     "самара": "samara",
+    "омск": "omsk",
     "ростов-на-дону": "rostov",
     "уфа": "ufa",
     "красноярск": "krasnoyarsk",
     "воронеж": "voronezh",
-    "перми": "perm",
-    "перми ": "perm",
+    "пермь": "perm",
     "волгоград": "volgograd",
+    "краснодар": "krasnodar",
+    "саратов": "saratov",
+    "тюмень": "tyumen",
+    "тольятти": "tolyatti",
+    "ижевск": "izhevsk",
+    "барнаул": "barnaul",
+    "ульяновск": "ulyanovsk",
+    "иркутск": "irkutsk",
+    "хабаровск": "khabarovsk",
+    "ярославль": "yaroslavl",
+    "владивосток": "vladivostok",
+    "томск": "tomsk",
+    "оренбург": "orenburg",
+    "кемерово": "kemerovo",
+    "рязань": "ryazan",
+    "астрахань": "astrakhan",
+    "пенза": "penza",
+    "липецк": "lipetsk",
+    "тула": "tula",
+    "киров": "kirov",
+    "чебоксары": "cheboksary",
+    "калининград": "kaliningrad",
+    "брянск": "bryansk",
+    "курск": "kursk",
+    "сочи": "sochi",
+    "ставрополь": "stavropol",
+    "белгород": "belgorod",
+    "сургут": "surgut",
+    "тверь": "tver",
+    "магнитогорск": "magnitogorsk",
+    "иваново": "ivanovo",
+    "владимир": "vladimir",
+    "архангельск": "arkhangelsk",
 }
+
+_TRANS = {"а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
+          "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
+          "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+          "ф": "f", "х": "h", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sch",
+          "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+          " ": "_", "-": "-"}
+
+
+def city_slug(city):
+    """Слаг города 2ГИС: из карты или простой транслит для остальных городов."""
+    c = city.lower().strip()
+    if c in CITY_SLUGS:
+        return CITY_SLUGS[c]
+    return "".join(_TRANS.get(ch, ch) for ch in c)
 
 # 🇷🇺 Города для режима --rotate-cities: «распарсить весь РФ» = идём по списку
 # по кругу (прогресс хранится в city_cursor.txt, отправленные — в processed.txt)
@@ -604,7 +653,7 @@ async def collect_leads(city, niches, max_pages, max_firms, mobile_only=True,
     def _target_reached():
         return bool(target_leads and (len(leads) - initial_count) >= target_leads)
 
-    slug = CITY_SLUGS.get(city.lower().strip(), quote(city.lower()))
+    slug = city_slug(city)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=headless)
